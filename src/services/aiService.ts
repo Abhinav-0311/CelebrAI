@@ -1,5 +1,6 @@
 import { AIEventPlanResponse, EventCreationInput, AIEventPlanResponseSchema } from '../types/schemas';
 import { generateDeterministicPlan } from './offlinePlanner';
+import { sanitizeEventPayloadForAI } from './privacySanitizer';
 
 export interface PlanGenerationResult {
   plan: AIEventPlanResponse;
@@ -9,13 +10,15 @@ export interface PlanGenerationResult {
 
 /**
  * Client AI Service
- * Calls the secure backend proxy /api/gemini.
+ * Calls the secure backend proxy /api/gemini with sanitized PII.
  * Never stores or exposes API keys on the browser client.
  */
 export async function generateCelebrAIPlan(
   input: EventCreationInput
 ): Promise<PlanGenerationResult> {
   try {
+    const sanitizedInput = sanitizeEventPayloadForAI(input);
+
     const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
@@ -23,7 +26,7 @@ export async function generateCelebrAIPlan(
       },
       body: JSON.stringify({
         action: 'generate_full_plan',
-        eventData: input,
+        eventData: sanitizedInput,
       }),
     });
 
@@ -40,7 +43,7 @@ export async function generateCelebrAIPlan(
     const json = await response.json();
 
     if (json.success && json.data) {
-      // Validate schema with Zod
+      // Tier 1 Validation: Zod schema validation
       const parsed = AIEventPlanResponseSchema.safeParse(json.data);
       if (parsed.success) {
         return {
