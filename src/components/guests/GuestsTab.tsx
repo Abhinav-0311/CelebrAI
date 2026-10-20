@@ -53,6 +53,10 @@ export const GuestsTab: React.FC = () => {
   });
 
   const totalTables = Math.ceil(currentEvent.guestCount / (guests.targetTableCapacity || 10));
+  const totalTrackedHeadcount = list.reduce((sum, g) => sum + 1 + (g.plusOnes || 0), 0);
+  const attendingHeadcount = list.filter((g) => g.rsvpStatus === 'attending').reduce((sum, g) => sum + 1 + (g.plusOnes || 0), 0);
+  const pendingHeadcount = list.filter((g) => g.rsvpStatus === 'pending').reduce((sum, g) => sum + 1 + (g.plusOnes || 0), 0);
+  const declinedHeadcount = list.filter((g) => g.rsvpStatus === 'declined').reduce((sum, g) => sum + 1 + (g.plusOnes || 0), 0);
 
   const handleDietaryToggle = (item: DietaryRequirement) => {
     if (newGuest.dietary.includes(item)) {
@@ -113,6 +117,45 @@ export const GuestsTab: React.FC = () => {
             <Plus className="w-4 h-4" />
             <span>Add Guest</span>
           </button>
+        </div>
+
+        {/* Headcount Accounting: Target Capacity vs Directory Registered */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] text-slate-500">Target Capacity</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+              {currentEvent.guestCount}
+            </p>
+            <span className="text-[10px] text-slate-400">{totalTables} Tables ({guests.targetTableCapacity || 10}/tbl)</span>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] text-slate-500">Tracked in Directory</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+              {totalTrackedHeadcount}
+            </p>
+            <span className="text-[10px] text-slate-400">{list.length} RSVP invitations</span>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Confirmed Attending</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+              {attendingHeadcount}
+            </p>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Guaranteed covers</span>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Pending Response</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+              {pendingHeadcount}
+            </p>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400">Awaiting RSVP</span>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 col-span-2 sm:col-span-1">
+            <span className="text-[11px] text-slate-500">Declined</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+              {declinedHeadcount}
+            </p>
+            <span className="text-[10px] text-slate-400">Not attending</span>
+          </div>
         </div>
 
         {/* Dietary & Kitchen Aggregates */}
@@ -308,10 +351,11 @@ export const GuestsTab: React.FC = () => {
 
             <form onSubmit={handleAddSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="guest-name" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Full Name *
                 </label>
                 <input
+                  id="guest-name"
                   type="text"
                   required
                   placeholder="e.g. Dr. Julian Vance"
@@ -322,10 +366,11 @@ export const GuestsTab: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="guest-email" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Email Address
                 </label>
                 <input
+                  id="guest-email"
                   type="email"
                   placeholder="julian@example.com"
                   value={newGuest.email}
@@ -336,10 +381,11 @@ export const GuestsTab: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="guest-rsvp" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     RSVP Status
                   </label>
                   <select
+                    id="guest-rsvp"
                     value={newGuest.rsvpStatus}
                     onChange={(e) => setNewGuest({ ...newGuest, rsvpStatus: e.target.value as any })}
                     className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
@@ -351,13 +397,14 @@ export const GuestsTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor="guest-plus-ones" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Plus-Ones
                   </label>
                   <input
+                    id="guest-plus-ones"
                     type="number"
                     min="0"
-                    max="5"
+                    max="10"
                     value={newGuest.plusOnes}
                     onChange={(e) => setNewGuest({ ...newGuest, plusOnes: parseInt(e.target.value) || 0 })}
                     className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"

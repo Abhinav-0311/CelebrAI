@@ -351,13 +351,13 @@ Output strictly according to the responseSchema provided.
       data: normalizedPlan,
     });
   } catch (error: any) {
-    console.error('Gemini Server Proxy Error:', error);
-    // Graceful fallback to deterministic generator
+    console.error('Gemini Server Proxy Error (internal):', error?.message || error);
+    // Safe graceful fallback to deterministic generator with sanitized error message
     const fallbackPlan = generateDeterministicPlan(validatedEvent);
     return res.status(200).json({
       success: true,
       mode: 'offline_fallback',
-      message: `Upstream AI unavailable (${error?.message || 'error'}). Served high-fidelity deterministic plan.`,
+      message: 'Upstream AI engine currently unavailable. High-fidelity deterministic plan served safely.',
       data: fallbackPlan,
     });
   }

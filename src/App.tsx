@@ -16,7 +16,7 @@ export const App: React.FC = () => {
   const { activeTab } = useEventStore();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans overflow-x-hidden">
       {/* Top Application Header */}
       <Header />
 
@@ -24,7 +24,7 @@ export const App: React.FC = () => {
       <NavigationTabs />
 
       {/* Main Content Area */}
-      <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'budget' && <BudgetTab />}
         {activeTab === 'timeline' && <TimelineTab />}

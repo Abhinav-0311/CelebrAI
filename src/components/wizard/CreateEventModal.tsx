@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, Loader2 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { EventCreationSchema, EventCreationInput } from '../../types/schemas';
@@ -18,6 +18,7 @@ const VIBE_OPTIONS = [
 
 export const CreateEventModal: React.FC = () => {
   const { isCreateModalOpen, setCreateModalOpen, createEvent, isGenerating } = useEventStore();
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<Partial<EventCreationInput>>({
     title: '',
@@ -33,6 +34,19 @@ export const CreateEventModal: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isCreateModalOpen && !isGenerating) {
+        setCreateModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    if (isCreateModalOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateModalOpen, isGenerating, setCreateModalOpen]);
 
   if (!isCreateModalOpen) return null;
 
@@ -70,6 +84,8 @@ export const CreateEventModal: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-event-title"
+      ref={modalRef}
+      tabIndex={-1}
     >
       <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 my-8">
         {/* Header */}

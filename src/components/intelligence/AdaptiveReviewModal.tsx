@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AlertTriangle, CheckCircle2, XCircle, ArrowRight, ShieldAlert } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { formatCurrency } from '../../types/event';
@@ -13,6 +13,27 @@ export const AdaptiveReviewModal: React.FC = () => {
   } = useEventStore();
 
   const [rejectionMessage, setRejectionMessage] = React.useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleDismiss = () => {
+    setRejectionMessage(null);
+    if (activeRippleAlert) {
+      dismissRipple(activeRippleAlert.id);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isAdaptiveModalOpen) {
+        handleDismiss();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    if (isAdaptiveModalOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAdaptiveModalOpen]);
 
   if (!isAdaptiveModalOpen || !activeRippleAlert || !currentEvent) return null;
 
@@ -23,6 +44,7 @@ export const AdaptiveReviewModal: React.FC = () => {
   const isInfeasibleBudget = isBudgetChange && Number(activeRippleAlert.newValue) < totalSpentCents;
 
   const handleApply = () => {
+    if (isInfeasibleBudget) return;
     const result = applyRipple(activeRippleAlert);
     if (result && !result.success) {
       setRejectionMessage(
@@ -33,17 +55,14 @@ export const AdaptiveReviewModal: React.FC = () => {
     }
   };
 
-  const handleDismiss = () => {
-    setRejectionMessage(null);
-    dismissRipple(activeRippleAlert.id);
-  };
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="adaptive-modal-title"
+      ref={modalRef}
+      tabIndex={-1}
     >
       <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5">
         {/* Header */}
@@ -85,7 +104,7 @@ export const AdaptiveReviewModal: React.FC = () => {
           <button
             type="button"
             onClick={handleDismiss}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg"
             aria-label="Close modal"
           >
             <XCircle className="w-5 h-5" />
@@ -123,16 +142,24 @@ export const AdaptiveReviewModal: React.FC = () => {
           </div>
         )}
 
-        {/* Constraint Warning if Infeasible */}
+        {/* Infeasible Budget Warning with Actionable Guidance */}
         {isInfeasibleBudget && !rejectionMessage && (
           <div
-            className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2 text-amber-800 dark:text-amber-300 text-xs"
+            className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1.5"
             role="status"
           >
-            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+            <div className="flex items-center gap-2 font-bold text-sm text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>Non-Actionable: Infeasible Budget Reduction</span>
+            </div>
             <p>
-              <strong>Constraint Warning:</strong> The proposed budget ({formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency)}) is lower than existing committed expenditures ({formatCurrency(totalSpentCents, currentEvent.budget.currency)}).
+              The proposed budget ({formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency)}) is lower than existing committed expenditures ({formatCurrency(totalSpentCents, currentEvent.budget.currency)}) by {formatCurrency(totalSpentCents - Number(activeRippleAlert.newValue), currentEvent.budget.currency)}.
             </p>
+            <div className="pt-1 border-t border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 space-y-0.5">
+              <p className="font-semibold">Suggested Alternatives:</p>
+              <p>• Cancel or reduce committed vendor line-items in the Budget ledger before reducing total budget.</p>
+              <p>• Adjust your proposed budget to at least <strong>{formatCurrency(totalSpentCents, currentEvent.budget.currency)}</strong> to protect existing contracts.</p>
+            </div>
           </div>
         )}
 
@@ -166,9 +193,14 @@ export const AdaptiveReviewModal: React.FC = () => {
 
         {/* Recommended Actions */}
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-            AI Recommended Plan Modifications
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              Recommended Plan Modifications
+            </h4>
+            <span className="text-[10px] text-slate-400 lowercase">
+              (Deterministic Adaptive Engine)
+            </span>
+          </div>
           <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
             {activeRippleAlert.recommendedActions.map((action, idx) => (
               <div
@@ -194,10 +226,16 @@ export const AdaptiveReviewModal: React.FC = () => {
           <button
             type="button"
             onClick={handleApply}
-            className="px-5 py-2 text-xs font-bold rounded-lg text-white bg-gradient-to-r from-brand-600 to-fuchsia-600 hover:from-brand-700 hover:to-fuchsia-700 shadow-md shadow-brand-500/20 transition flex items-center gap-1.5"
+            disabled={isInfeasibleBudget}
+            title={isInfeasibleBudget ? "Cannot apply budget reduction below committed expenditure" : "Apply recommended adjustments"}
+            className={`px-5 py-2 text-xs font-bold rounded-lg text-white transition flex items-center gap-1.5 ${
+              isInfeasibleBudget
+                ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60'
+                : 'bg-gradient-to-r from-brand-600 to-fuchsia-600 hover:from-brand-700 hover:to-fuchsia-700 shadow-md shadow-brand-500/20'
+            }`}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Apply Recommendations</span>
+            <span>{isInfeasibleBudget ? 'Infeasible (Locked)' : 'Apply Recommendations'}</span>
           </button>
         </div>
       </div>

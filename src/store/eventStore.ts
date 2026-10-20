@@ -7,13 +7,13 @@ import {
   ExpenseItem, 
   TimelineMilestone, 
   AdaptiveRippleAlert,
-  dollarsToCents,
-  DietarySummary
+  dollarsToCents
 } from '../types/event';
 import { EventCreationInput, CelebrAIEventSchema } from '../types/schemas';
 import { sampleEventData } from '../services/sampleEvent';
 import { generateCelebrAIPlan } from '../services/aiService';
 import { analyzeGuestCountChange, analyzeBudgetChange, applyRipplePatch } from '../services/adaptiveEngine';
+import { computeDietarySummary, recalculateAllocations } from '../services/eventAnalytics';
 
 export type NavigationTab =
   | 'overview'
@@ -78,56 +78,6 @@ interface EventStoreState {
   resetEvent: () => void;
 }
 
-/**
- * Computes dietary summaries distinguishing confirmed vs potential requirements,
- * while maintaining strict consistency with overall event guest count.
- */
-function computeDietarySummary(list: Guest[], totalEventGuestCount: number = 0): DietarySummary {
-  let listHeadcount = 0;
-  let confirmedAttending = 0;
-  let confirmedVegan = 0;
-  let confirmedVegetarian = 0;
-  let confirmedGlutenFree = 0;
-  let confirmedHalal = 0;
-  let confirmedNutAllergy = 0;
-  let potentialDietaryCount = 0;
-  let otherCount = 0;
-
-  list.forEach((g) => {
-    const headCount = 1 + (g.plusOnes || 0);
-    listHeadcount += headCount;
-
-    if (g.rsvpStatus === 'attending') {
-      confirmedAttending += headCount;
-      if (g.dietary.includes('vegan')) confirmedVegan += headCount;
-      if (g.dietary.includes('vegetarian')) confirmedVegetarian += headCount;
-      if (g.dietary.includes('gluten_free')) confirmedGlutenFree += headCount;
-      if (g.dietary.includes('halal')) confirmedHalal += headCount;
-      if (g.dietary.includes('nut_allergy')) confirmedNutAllergy += headCount;
-      if (g.dietary.some((d) => d === 'other' || d === 'dairy_free' || d === 'kosher')) {
-        otherCount += headCount;
-      }
-    } else if (g.rsvpStatus === 'pending') {
-      if (g.dietary.some((d) => d !== 'none')) {
-        potentialDietaryCount += headCount;
-      }
-    }
-  });
-
-  const totalInvited = Math.max(totalEventGuestCount, listHeadcount);
-
-  return {
-    totalInvited,
-    confirmedAttending,
-    confirmedVegan,
-    confirmedVegetarian,
-    confirmedGlutenFree,
-    confirmedHalal,
-    confirmedNutAllergy,
-    potentialDietaryCount,
-    otherCount,
-  };
-}
 
 export const useEventStore = create<EventStoreState>()(
   persist(
@@ -318,17 +268,7 @@ export const useEventStore = create<EventStoreState>()(
         };
 
         const updatedExpenses = [newExpense, ...currentEvent.budget.expenses];
-
-        // Update actualSpentCents in matching allocation
-        const updatedAllocations = currentEvent.budget.allocations.map((alloc) => {
-          if (alloc.category === expenseData.category) {
-            return {
-              ...alloc,
-              actualSpentCents: alloc.actualSpentCents + (expenseData.isPaid ? expenseData.actualCents : 0),
-            };
-          }
-          return alloc;
-        });
+        const updatedAllocations = recalculateAllocations(currentEvent.budget.allocations, updatedExpenses);
 
         set({
           currentEvent: {
@@ -347,18 +287,8 @@ export const useEventStore = create<EventStoreState>()(
         const { currentEvent } = get();
         if (!currentEvent) return;
 
-        const expenseToDelete = currentEvent.budget.expenses.find((e) => e.id === id);
         const filtered = currentEvent.budget.expenses.filter((e) => e.id !== id);
-
-        const updatedAllocations = currentEvent.budget.allocations.map((alloc) => {
-          if (expenseToDelete && alloc.category === expenseToDelete.category && expenseToDelete.isPaid) {
-            return {
-              ...alloc,
-              actualSpentCents: Math.max(0, alloc.actualSpentCents - expenseToDelete.actualCents),
-            };
-          }
-          return alloc;
-        });
+        const updatedAllocations = recalculateAllocations(currentEvent.budget.allocations, filtered);
 
         set({
           currentEvent: {
@@ -377,28 +307,14 @@ export const useEventStore = create<EventStoreState>()(
         const { currentEvent } = get();
         if (!currentEvent) return;
 
-        let diffCents = 0;
-        let category = '';
-
         const updatedExpenses = currentEvent.budget.expenses.map((e) => {
           if (e.id === id) {
-            const nextPaid = !e.isPaid;
-            diffCents = nextPaid ? e.actualCents : -e.actualCents;
-            category = e.category;
-            return { ...e, isPaid: nextPaid };
+            return { ...e, isPaid: !e.isPaid };
           }
           return e;
         });
 
-        const updatedAllocations = currentEvent.budget.allocations.map((alloc) => {
-          if (alloc.category === category) {
-            return {
-              ...alloc,
-              actualSpentCents: Math.max(0, alloc.actualSpentCents + diffCents),
-            };
-          }
-          return alloc;
-        });
+        const updatedAllocations = recalculateAllocations(currentEvent.budget.allocations, updatedExpenses);
 
         set({
           currentEvent: {

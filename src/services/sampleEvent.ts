@@ -1,4 +1,18 @@
-import { CelebrAIEvent } from '../types/event';
+import { CelebrAIEvent, Guest } from '../types/event';
+import { computeDietarySummary } from './eventAnalytics';
+
+const sampleGuestList: Guest[] = [
+  { id: 'g-1', name: 'Dr. Evelyn Vance', email: 'evelyn.vance@aurora.org', rsvpStatus: 'attending', plusOnes: 1, dietary: ['vegetarian'], tableNumber: 1, isVip: true },
+  { id: 'g-2', name: 'Marcus Sterling', email: 'marcus.s@sterlingtech.io', rsvpStatus: 'attending', plusOnes: 0, dietary: ['none'], tableNumber: 1, isVip: true },
+  { id: 'g-3', name: 'Aaliyah Khan', email: 'aaliyah.k@globalinnovate.com', rsvpStatus: 'attending', plusOnes: 1, dietary: ['halal'], tableNumber: 1, isVip: true },
+  { id: 'g-4', name: 'Julian Romero', email: 'j.romero@pacificventures.net', rsvpStatus: 'attending', plusOnes: 1, dietary: ['gluten_free'], tableNumber: 2, isVip: false },
+  { id: 'g-5', name: 'Sophie Zhang', email: 'sophie.zhang@designlab.org', rsvpStatus: 'attending', plusOnes: 0, dietary: ['vegan', 'nut_allergy'], tableNumber: 2, isVip: false },
+  { id: 'g-6', name: 'David O’Connor', email: 'david.oc@summitmedia.com', rsvpStatus: 'pending', plusOnes: 1, dietary: ['none'], tableNumber: 2, isVip: false },
+  { id: 'g-7', name: 'Chloe Montgomery', email: 'chloe.m@montgomerypr.com', rsvpStatus: 'attending', plusOnes: 0, dietary: ['dairy_free'], tableNumber: 3, isVip: false },
+  { id: 'g-8', name: 'Liam Takahashi', email: 'liam.t@cloudarchitects.io', rsvpStatus: 'declined', plusOnes: 0, dietary: ['none'], isVip: false },
+  { id: 'g-9', name: 'Elena Rostova', email: 'elena.rostova@ecofund.org', rsvpStatus: 'attending', plusOnes: 1, dietary: ['vegetarian', 'gluten_free'], tableNumber: 3, isVip: true },
+  { id: 'g-10', name: 'Amir Patel', email: 'amir.p@horizonhealth.com', rsvpStatus: 'attending', plusOnes: 0, dietary: ['halal'], tableNumber: 3, isVip: false },
+];
 
 export const sampleEventData: CelebrAIEvent = {
   schemaVersion: 1,
@@ -56,29 +70,8 @@ export const sampleEventData: CelebrAIEvent = {
   },
   guests: {
     targetTableCapacity: 10,
-    list: [
-      { id: 'g-1', name: 'Dr. Evelyn Vance', email: 'evelyn.vance@aurora.org', rsvpStatus: 'attending', plusOnes: 1, dietary: ['vegetarian'], tableNumber: 1, isVip: true },
-      { id: 'g-2', name: 'Marcus Sterling', email: 'marcus.s@sterlingtech.io', rsvpStatus: 'attending', plusOnes: 0, dietary: ['none'], tableNumber: 1, isVip: true },
-      { id: 'g-3', name: 'Aaliyah Khan', email: 'aaliyah.k@globalinnovate.com', rsvpStatus: 'attending', plusOnes: 1, dietary: ['halal'], tableNumber: 1, isVip: true },
-      { id: 'g-4', name: 'Julian Romero', email: 'j.romero@pacificventures.net', rsvpStatus: 'attending', plusOnes: 1, dietary: ['gluten_free'], tableNumber: 2, isVip: false },
-      { id: 'g-5', name: 'Sophie Zhang', email: 'sophie.zhang@designlab.org', rsvpStatus: 'attending', plusOnes: 0, dietary: ['vegan', 'nut_allergy'], tableNumber: 2, isVip: false },
-      { id: 'g-6', name: 'David O’Connor', email: 'david.oc@summitmedia.com', rsvpStatus: 'pending', plusOnes: 1, dietary: ['none'], tableNumber: 2, isVip: false },
-      { id: 'g-7', name: 'Chloe Montgomery', email: 'chloe.m@montgomerypr.com', rsvpStatus: 'attending', plusOnes: 0, dietary: ['dairy_free'], tableNumber: 3, isVip: false },
-      { id: 'g-8', name: 'Liam Takahashi', email: 'liam.t@cloudarchitects.io', rsvpStatus: 'declined', plusOnes: 0, dietary: ['none'], isVip: false },
-      { id: 'g-9', name: 'Elena Rostova', email: 'elena.rostova@ecofund.org', rsvpStatus: 'attending', plusOnes: 1, dietary: ['vegetarian', 'gluten_free'], tableNumber: 3, isVip: true },
-      { id: 'g-10', name: 'Amir Patel', email: 'amir.p@horizonhealth.com', rsvpStatus: 'attending', plusOnes: 0, dietary: ['halal'], tableNumber: 3, isVip: false },
-    ],
-    dietarySummary: {
-      totalInvited: 150,
-      confirmedAttending: 13,
-      confirmedVegan: 1,
-      confirmedVegetarian: 4,
-      confirmedGlutenFree: 3,
-      confirmedHalal: 2,
-      confirmedNutAllergy: 1,
-      potentialDietaryCount: 2,
-      otherCount: 1,
-    },
+    list: sampleGuestList,
+    dietarySummary: computeDietarySummary(sampleGuestList, 150),
   },
   timeline: {
     date: '2026-11-28',
@@ -126,7 +119,7 @@ export const sampleEventData: CelebrAIEvent = {
           { id: 'vcl-5', task: 'Lock in allergy and dietary guest counts (Halal, Vegan, GF)', isCompleted: true },
           { id: 'vcl-6', task: 'Confirm bar licensing and glassware inventory', isCompleted: true },
         ],
-        inquiryDraft: 'Dear Chef Elena,\n\nPlease find our updated guest dietary count for Nov 28: 150 total, including 4 Vegetarian, 1 Vegan, 3 Gluten-Free, 2 Halal, and 1 Severe Nut Allergy. Kindly ensure dietary plates are labeled with table numbers 1, 2, and 3.\n\nBest,\nCelebrAI Coordination Team',
+        inquiryDraft: 'Dear Chef Elena,\n\nPlease find our updated guest dietary count for Nov 28: 150 total, including 4 Vegetarian, 1 Vegan, 4 Gluten-Free, 3 Halal, and 1 Severe Nut Allergy. Kindly ensure dietary plates are labeled with table numbers 1, 2, and 3.\n\nBest,\nCelebrAI Coordination Team',
       },
       {
         id: 'vc-3',

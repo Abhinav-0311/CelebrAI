@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { BudgetAllocation, formatCurrency, dollarsToCents } from '../../types/event';
+import { computeFinancialSummary } from '../../services/eventAnalytics';
 
 export const BudgetTab: React.FC = () => {
   const { currentEvent, addExpense, deleteExpense, toggleExpensePaid } = useEventStore();
@@ -35,11 +36,16 @@ export const BudgetTab: React.FC = () => {
   if (!currentEvent) return null;
 
   const { budget } = currentEvent;
-  const totalBudgetCents = budget.totalBudgetCents;
-  const totalAllocatedCents = budget.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
-  const totalSpentCents = budget.allocations.reduce((sum, a) => sum + a.actualSpentCents, 0);
-  const remainingCents = totalBudgetCents - totalSpentCents;
-  const isOverBudget = totalSpentCents > totalBudgetCents;
+  const summary = computeFinancialSummary(budget);
+  const {
+    totalBudgetCents,
+    totalAllocatedCents,
+    totalCommittedCents,
+    totalPaidCents,
+    totalOutstandingCents,
+    remainingHeadroomCents,
+    isOverBudget,
+  } = summary;
 
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,30 +111,41 @@ export const BudgetTab: React.FC = () => {
         </div>
 
         {/* Quantitative Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] text-slate-500">Total Budget Target</span>
+            <span className="text-[11px] text-slate-500">Total Budget</span>
             <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
               {formatCurrency(totalBudgetCents, budget.currency)}
             </p>
+            <span className="text-[10px] text-slate-400">Planned: {formatCurrency(totalAllocatedCents, budget.currency)}</span>
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] text-slate-500">Planned Allocation</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
-              {formatCurrency(totalAllocatedCents, budget.currency)}
-            </p>
-          </div>
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] text-slate-500">Committed / Paid</span>
+            <span className="text-[11px] text-slate-500">Committed (All)</span>
             <p className={`text-lg font-bold mt-0.5 font-mono ${isOverBudget ? 'text-rose-600' : 'text-slate-900 dark:text-slate-100'}`}>
-              {formatCurrency(totalSpentCents, budget.currency)}
+              {formatCurrency(totalCommittedCents, budget.currency)}
             </p>
+            <span className="text-[10px] text-slate-400">{Math.round((totalCommittedCents / totalBudgetCents) * 100)}% of ceiling</span>
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] text-slate-500">Available Headroom</span>
-            <p className={`text-lg font-bold mt-0.5 font-mono ${remainingCents >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {formatCurrency(remainingCents, budget.currency)}
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Paid Expenditures</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+              {formatCurrency(totalPaidCents, budget.currency)}
             </p>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Settled invoices</span>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Outstanding</span>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+              {formatCurrency(totalOutstandingCents, budget.currency)}
+            </p>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400">Pending payment</span>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 col-span-2 sm:col-span-1">
+            <span className="text-[11px] text-slate-500">Available Headroom</span>
+            <p className={`text-lg font-bold mt-0.5 font-mono ${remainingHeadroomCents >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {formatCurrency(remainingHeadroomCents, budget.currency)}
+            </p>
+            <span className="text-[10px] text-slate-400">Remaining variance</span>
           </div>
         </div>
 
@@ -138,7 +155,7 @@ export const BudgetTab: React.FC = () => {
             <span className="font-semibold flex items-center gap-1.5">
               <PieChart className="w-3.5 h-3.5" /> Budget Utilization
             </span>
-            <span>{Math.round((totalSpentCents / totalBudgetCents) * 100)}% Spent</span>
+            <span>{Math.round((totalCommittedCents / totalBudgetCents) * 100)}% Committed</span>
           </div>
           <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
             {budget.allocations.map((alloc) => {
@@ -223,13 +240,22 @@ export const BudgetTab: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-400">
                     <span>{spentPct}% utilized</span>
-                    <span>
+                    <span className={isCategoryOver ? 'text-rose-600 font-bold' : ''}>
                       {alloc.allocatedCents - alloc.actualSpentCents >= 0
                         ? `${formatCurrency(alloc.allocatedCents - alloc.actualSpentCents, budget.currency)} left`
                         : `-${formatCurrency(Math.abs(alloc.allocatedCents - alloc.actualSpentCents), budget.currency)} over`}
                     </span>
                   </div>
                 </div>
+
+                {isCategoryOver && (
+                  <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-1.5 text-[11px] text-rose-700 dark:text-rose-300">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Over Budget:</span> Exceeds allocation by {formatCurrency(alloc.actualSpentCents - alloc.allocatedCents, budget.currency)}.
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
