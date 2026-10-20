@@ -49,7 +49,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <span>Powered by Google Gemini 3.8 Flash & Antigravity</span>
             <span>•</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">WCAG 2.1 AA Compliant</span>
+            <span className="text-slate-500 font-medium">Built with WCAG 2.1 AA Accessibility Guidelines</span>
           </div>
         </div>
       </footer>

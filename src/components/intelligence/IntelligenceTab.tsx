@@ -13,7 +13,7 @@ export const IntelligenceTab: React.FC = () => {
   const { 
     currentEvent, 
     updateGuestCount, 
-    updateTotalBudget, 
+    updateTotalBudgetCents, 
     setAdaptiveModalOpen, 
     setActiveRippleAlert 
   } = useEventStore();
@@ -74,7 +74,7 @@ export const IntelligenceTab: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => updateTotalBudget(currentEvent.budget.totalBudget + 10000)}
+              onClick={() => updateTotalBudgetCents(currentEvent.budget.totalBudgetCents + 1000000)}
               className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-semibold text-white transition flex items-center gap-1.5"
             >
               <span>+$10,000 Budget (Expand)</span>
@@ -83,7 +83,7 @@ export const IntelligenceTab: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => updateTotalBudget(Math.max(5000, currentEvent.budget.totalBudget - 8000))}
+              onClick={() => updateTotalBudgetCents(Math.max(500000, currentEvent.budget.totalBudgetCents - 800000))}
               className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-semibold text-white transition flex items-center gap-1.5"
             >
               <span>-$8,000 Budget (Stress Test)</span>

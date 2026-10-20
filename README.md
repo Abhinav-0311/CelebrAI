@@ -4,7 +4,7 @@
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg)](https://tailwindcss.com/)
 [![Vitest Tests](https://img.shields.io/badge/Tests-18%20Passed-success.svg)](https://vitest.dev/)
-[![WCAG 2.1 AA](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA-emerald.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
+[![WCAG 2.1 AA Standards](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%20Standards-emerald.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
 [![AI Model](https://img.shields.io/badge/GenAI-Gemini%203.8%20Flash-purple.svg)](https://ai.google.dev/)
 [![Repository Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-brightgreen.svg)]()
 
@@ -30,7 +30,7 @@ CelebrAI was engineered specifically to score maximum points across all 6 automa
 | :--- | :--- |
 | **Problem Statement Alignment** | Comprehensive support for all celebration categories: Weddings, Milestone Birthdays, Corporate Galas, Anniversaries, Baby Showers, and Themed Parties. Connects Concept Themes, Budget Models, Run-of-Show Timelines, Guest Directories, Catering portioning, Creative Copywriting, and Vendor RFP management. |
 | **Code Quality & Architecture** | Strict TypeScript throughout (`noUnusedLocals`, `strict: true`). Decoupled domain architecture in `src/types/event.ts`, centralized Zustand reactive store with LocalStorage persistence, Zod runtime validation schemas, and modular components. Zero spaghetti code. |
-| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Strict Content-Security-Policy-ready headers, sanitized inputs via Zod, and rate-limiting safeguards. |
+| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 15s execution timeout, and sanitized inputs via Zod. Compatible with Vercel Firewall / WAF rules. |
 | **Efficiency & Performance** | Blazing-fast Vite build (~6s). Total production bundle size is under 400 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-100ms local state transitions. Repository size is strictly `< 1 MB` (well under the 10 MB limit). |
 | **Testing & Coverage** | Comprehensive Vitest suite with **18 passing unit and integration tests** covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine, and full UI tab navigation flows. Run with `npm test`. |
 | **Accessibility (WCAG 2.1 AA)** | Semantic HTML5 structure (`<main>`, `<header>`, `<nav>`, `<section>`), skip-to-content screen reader anchor, full ARIA roles (`role="tablist"`, `aria-selected`, `role="dialog"`), visible focus rings for keyboard navigation, and contrast ratios $\ge 4.5:1$. |

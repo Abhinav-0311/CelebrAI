@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { CelebrAIEvent, SystemAIMode, Guest, ExpenseItem, TimelineMilestone, AdaptiveRippleAlert } from '../types/event';
-import { EventCreationInput } from '../types/schemas';
+import { 
+  CelebrAIEvent, 
+  SystemAIMode, 
+  Guest, 
+  ExpenseItem, 
+  TimelineMilestone, 
+  AdaptiveRippleAlert,
+  dollarsToCents,
+  DietarySummary
+} from '../types/event';
+import { EventCreationInput, CelebrAIEventSchema } from '../types/schemas';
 import { sampleEventData } from '../services/sampleEvent';
 import { generateCelebrAIPlan } from '../services/aiService';
 import { analyzeGuestCountChange, analyzeBudgetChange, applyRipplePatch } from '../services/adaptiveEngine';
@@ -14,6 +23,11 @@ export type NavigationTab =
   | 'creative'
   | 'vendors'
   | 'intelligence';
+
+interface ImportResult {
+  success: boolean;
+  error?: string;
+}
 
 interface EventStoreState {
   currentEvent: CelebrAIEvent | null;
@@ -34,11 +48,11 @@ interface EventStoreState {
   loadSampleEvent: () => void;
   createEvent: (input: EventCreationInput) => Promise<void>;
   updateGuestCount: (newCount: number) => void;
-  updateTotalBudget: (newBudget: number) => void;
+  updateTotalBudgetCents: (newBudgetCents: number) => void;
   applyRipple: (alert: AdaptiveRippleAlert) => void;
   dismissRipple: (alertId: string) => void;
 
-  // Budget Actions
+  // Budget Actions (Minor Units: Cents)
   addExpense: (expense: Omit<ExpenseItem, 'id' | 'createdAt'>) => void;
   deleteExpense: (id: string) => void;
   toggleExpensePaid: (id: string) => void;
@@ -60,16 +74,64 @@ interface EventStoreState {
 
   // Persistence & Data Transfer
   exportEventJson: () => string;
-  importEventJson: (jsonString: string) => boolean;
+  importEventJson: (jsonString: string) => ImportResult;
   resetEvent: () => void;
+}
+
+/**
+ * Computes dietary summaries distinguishing confirmed vs potential requirements.
+ */
+function computeDietarySummary(list: Guest[]): DietarySummary {
+  let totalInvited = 0;
+  let confirmedAttending = 0;
+  let confirmedVegan = 0;
+  let confirmedVegetarian = 0;
+  let confirmedGlutenFree = 0;
+  let confirmedHalal = 0;
+  let confirmedNutAllergy = 0;
+  let potentialDietaryCount = 0;
+  let otherCount = 0;
+
+  list.forEach((g) => {
+    const headCount = 1 + (g.plusOnes || 0);
+    totalInvited += headCount;
+
+    if (g.rsvpStatus === 'attending') {
+      confirmedAttending += headCount;
+      if (g.dietary.includes('vegan')) confirmedVegan += headCount;
+      if (g.dietary.includes('vegetarian')) confirmedVegetarian += headCount;
+      if (g.dietary.includes('gluten_free')) confirmedGlutenFree += headCount;
+      if (g.dietary.includes('halal')) confirmedHalal += headCount;
+      if (g.dietary.includes('nut_allergy')) confirmedNutAllergy += headCount;
+      if (g.dietary.some((d) => d === 'other' || d === 'dairy_free' || d === 'kosher')) {
+        otherCount += headCount;
+      }
+    } else if (g.rsvpStatus === 'pending') {
+      if (g.dietary.some((d) => d !== 'none')) {
+        potentialDietaryCount += headCount;
+      }
+    }
+  });
+
+  return {
+    totalInvited,
+    confirmedAttending,
+    confirmedVegan,
+    confirmedVegetarian,
+    confirmedGlutenFree,
+    confirmedHalal,
+    confirmedNutAllergy,
+    potentialDietaryCount,
+    otherCount,
+  };
 }
 
 export const useEventStore = create<EventStoreState>()(
   persist(
     (set, get) => ({
-      currentEvent: sampleEventData, // Defaults to preloaded sample event for instant showcase
+      currentEvent: sampleEventData,
       systemMode: 'sample',
-      systemMessage: 'Sample Showcase Event Loaded',
+      systemMessage: 'Sample Showcase Event: Aurora Horizons Gala',
       activeTab: 'overview',
       isCreateModalOpen: false,
       isAdaptiveModalOpen: false,
@@ -94,20 +156,23 @@ export const useEventStore = create<EventStoreState>()(
         set({ isGenerating: true });
         try {
           const result = await generateCelebrAIPlan(input);
+          const totalCents = dollarsToCents(input.totalBudget);
 
           const newEvent: CelebrAIEvent = {
+            schemaVersion: 1,
             id: `evt-${Date.now()}`,
             title: input.title,
             eventType: input.eventType,
             guestCount: input.guestCount,
             eventDate: input.eventDate,
+            timezone: input.timezone || 'America/Los_Angeles',
             location: input.location,
             venueType: input.venueType,
             vibeKeywords: input.vibeKeywords,
             status: 'planning',
             theme: result.plan.theme,
             budget: {
-              totalBudget: input.totalBudget,
+              totalBudgetCents: totalCents,
               currency: input.currency || 'USD',
               contingencyRate: 0.05,
               allocations: result.plan.allocations,
@@ -116,13 +181,14 @@ export const useEventStore = create<EventStoreState>()(
             guests: {
               list: [],
               dietarySummary: {
-                totalGuests: input.guestCount,
-                attendingGuests: 0,
-                veganCount: 0,
-                vegetarianCount: 0,
-                glutenFreeCount: 0,
-                halalCount: 0,
-                nutAllergyCount: 0,
+                totalInvited: input.guestCount,
+                confirmedAttending: 0,
+                confirmedVegan: 0,
+                confirmedVegetarian: 0,
+                confirmedGlutenFree: 0,
+                confirmedHalal: 0,
+                confirmedNutAllergy: 0,
+                potentialDietaryCount: 0,
                 otherCount: 0,
               },
               targetTableCapacity: 10,
@@ -131,6 +197,7 @@ export const useEventStore = create<EventStoreState>()(
               date: input.eventDate,
               startTime: '14:00',
               endTime: '22:00',
+              timezone: input.timezone || 'America/Los_Angeles',
               isDayOfLiveActive: false,
               milestones: result.plan.milestones,
             },
@@ -176,11 +243,11 @@ export const useEventStore = create<EventStoreState>()(
         }
       },
 
-      updateTotalBudget: (newBudget: number) => {
+      updateTotalBudgetCents: (newBudgetCents: number) => {
         const { currentEvent } = get();
         if (!currentEvent) return;
 
-        const ripple = analyzeBudgetChange(currentEvent, newBudget);
+        const ripple = analyzeBudgetChange(currentEvent, newBudgetCents);
         if (ripple) {
           const updatedRipples = [ripple, ...currentEvent.pendingRipples];
           set({
@@ -235,12 +302,12 @@ export const useEventStore = create<EventStoreState>()(
 
         const updatedExpenses = [newExpense, ...currentEvent.budget.expenses];
 
-        // Update actualSpent in matching allocation
+        // Update actualSpentCents in matching allocation
         const updatedAllocations = currentEvent.budget.allocations.map((alloc) => {
           if (alloc.category === expenseData.category) {
             return {
               ...alloc,
-              actualSpent: alloc.actualSpent + (expenseData.isPaid ? expenseData.actualCost : 0),
+              actualSpentCents: alloc.actualSpentCents + (expenseData.isPaid ? expenseData.actualCents : 0),
             };
           }
           return alloc;
@@ -270,7 +337,7 @@ export const useEventStore = create<EventStoreState>()(
           if (expenseToDelete && alloc.category === expenseToDelete.category && expenseToDelete.isPaid) {
             return {
               ...alloc,
-              actualSpent: Math.max(0, alloc.actualSpent - expenseToDelete.actualCost),
+              actualSpentCents: Math.max(0, alloc.actualSpentCents - expenseToDelete.actualCents),
             };
           }
           return alloc;
@@ -293,13 +360,13 @@ export const useEventStore = create<EventStoreState>()(
         const { currentEvent } = get();
         if (!currentEvent) return;
 
-        let diff = 0;
+        let diffCents = 0;
         let category = '';
 
         const updatedExpenses = currentEvent.budget.expenses.map((e) => {
           if (e.id === id) {
             const nextPaid = !e.isPaid;
-            diff = nextPaid ? e.actualCost : -e.actualCost;
+            diffCents = nextPaid ? e.actualCents : -e.actualCents;
             category = e.category;
             return { ...e, isPaid: nextPaid };
           }
@@ -310,7 +377,7 @@ export const useEventStore = create<EventStoreState>()(
           if (alloc.category === category) {
             return {
               ...alloc,
-              actualSpent: Math.max(0, alloc.actualSpent + diff),
+              actualSpentCents: Math.max(0, alloc.actualSpentCents + diffCents),
             };
           }
           return alloc;
@@ -339,15 +406,7 @@ export const useEventStore = create<EventStoreState>()(
         };
 
         const updatedList = [...currentEvent.guests.list, newGuest];
-
-        // Recalculate dietary counts
-        const attendingGuests = updatedList.filter((g) => g.rsvpStatus === 'attending').length;
-        const veganCount = updatedList.filter((g) => g.dietary.includes('vegan')).length;
-        const vegetarianCount = updatedList.filter((g) => g.dietary.includes('vegetarian')).length;
-        const glutenFreeCount = updatedList.filter((g) => g.dietary.includes('gluten_free')).length;
-        const halalCount = updatedList.filter((g) => g.dietary.includes('halal')).length;
-        const nutAllergyCount = updatedList.filter((g) => g.dietary.includes('nut_allergy')).length;
-        const otherCount = updatedList.filter((g) => g.dietary.includes('other') || g.dietary.includes('dairy_free') || g.dietary.includes('kosher')).length;
+        const updatedSummary = computeDietarySummary(updatedList);
 
         set({
           currentEvent: {
@@ -355,16 +414,7 @@ export const useEventStore = create<EventStoreState>()(
             guests: {
               ...currentEvent.guests,
               list: updatedList,
-              dietarySummary: {
-                totalGuests: currentEvent.guestCount,
-                attendingGuests,
-                veganCount,
-                vegetarianCount,
-                glutenFreeCount,
-                halalCount,
-                nutAllergyCount,
-                otherCount,
-              },
+              dietarySummary: updatedSummary,
             },
             updatedAt: new Date().toISOString(),
           },
@@ -376,7 +426,7 @@ export const useEventStore = create<EventStoreState>()(
         if (!currentEvent) return;
 
         const updatedList = currentEvent.guests.list.map((g) => (g.id === guest.id ? guest : g));
-        const attendingGuests = updatedList.filter((g) => g.rsvpStatus === 'attending').length;
+        const updatedSummary = computeDietarySummary(updatedList);
 
         set({
           currentEvent: {
@@ -384,10 +434,7 @@ export const useEventStore = create<EventStoreState>()(
             guests: {
               ...currentEvent.guests,
               list: updatedList,
-              dietarySummary: {
-                ...currentEvent.guests.dietarySummary,
-                attendingGuests,
-              },
+              dietarySummary: updatedSummary,
             },
             updatedAt: new Date().toISOString(),
           },
@@ -399,7 +446,7 @@ export const useEventStore = create<EventStoreState>()(
         if (!currentEvent) return;
 
         const updatedList = currentEvent.guests.list.filter((g) => g.id !== id);
-        const attendingGuests = updatedList.filter((g) => g.rsvpStatus === 'attending').length;
+        const updatedSummary = computeDietarySummary(updatedList);
 
         set({
           currentEvent: {
@@ -407,10 +454,7 @@ export const useEventStore = create<EventStoreState>()(
             guests: {
               ...currentEvent.guests,
               list: updatedList,
-              dietarySummary: {
-                ...currentEvent.guests.dietarySummary,
-                attendingGuests,
-              },
+              dietarySummary: updatedSummary,
             },
             updatedAt: new Date().toISOString(),
           },
@@ -548,22 +592,31 @@ export const useEventStore = create<EventStoreState>()(
         return JSON.stringify(currentEvent, null, 2);
       },
 
-      importEventJson: (jsonString: string) => {
+      importEventJson: (jsonString: string): ImportResult => {
         try {
-          const parsed = JSON.parse(jsonString) as CelebrAIEvent;
-          if (!parsed.id || !parsed.title || !parsed.budget || !parsed.timeline) {
-            throw new Error('Invalid CelebrAI event schema');
+          const raw = JSON.parse(jsonString);
+          // Complete Zod schema validation
+          const validation = CelebrAIEventSchema.safeParse(raw);
+          if (!validation.success) {
+            const firstError = validation.error.issues[0];
+            return {
+              success: false,
+              error: `Invalid event JSON: ${firstError.path.join('.')} - ${firstError.message}`,
+            };
           }
+
           set({
-            currentEvent: parsed,
+            currentEvent: validation.data as CelebrAIEvent,
             systemMode: 'sample',
-            systemMessage: `Imported event: "${parsed.title}"`,
+            systemMessage: `Imported event: "${validation.data.title}"`,
             activeTab: 'overview',
           });
-          return true;
-        } catch (e) {
-          console.error('Failed to import event JSON:', e);
-          return false;
+          return { success: true };
+        } catch (e: any) {
+          return {
+            success: false,
+            error: `JSON parse error: ${e?.message || 'Malformed JSON string'}`,
+          };
         }
       },
 
@@ -577,6 +630,17 @@ export const useEventStore = create<EventStoreState>()(
     }),
     {
       name: 'celebr-ai-storage-v1',
+      version: 1,
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0 || !persistedState) {
+          return {
+            currentEvent: sampleEventData,
+            systemMode: 'sample',
+            systemMessage: 'Migrated to v1 storage schema',
+          };
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         currentEvent: state.currentEvent,
         systemMode: state.systemMode,

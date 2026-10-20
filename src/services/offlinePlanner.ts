@@ -1,4 +1,5 @@
 import { AIEventPlanResponse, EventCreationInput } from '../types/schemas';
+import { dollarsToCents } from '../types/event';
 
 interface ThemePreset {
   conceptTitle: string;
@@ -114,12 +115,57 @@ const THEME_PRESETS: Record<string, ThemePreset> = {
   },
 };
 
+/**
+ * Distributes total cents across percentage categories using largest-remainder method.
+ * Guarantees that sum(allocatedCents) === totalBudgetCents to the exact single cent.
+ */
+export function reconcileBudgetCents(
+  totalBudgetCents: number,
+  percentages: { category: any; name: string; pct: number }[]
+): { id: string; category: any; name: string; percentage: number; allocatedCents: number; actualSpentCents: number }[] {
+  // Normalize percentages to sum to 100
+  const totalPct = percentages.reduce((sum, p) => sum + p.pct, 0);
+  
+  // Calculate floor cents and remainders
+  const allocationsWithRemainder = percentages.map((p, idx) => {
+    const rawCents = (totalBudgetCents * p.pct) / totalPct;
+    const floorCents = Math.floor(rawCents);
+    const fractionalRemainder = rawCents - floorCents;
+    return {
+      id: `alloc-${idx + 1}`,
+      category: p.category,
+      name: p.name,
+      percentage: p.pct,
+      allocatedCents: floorCents,
+      actualSpentCents: 0,
+      fractionalRemainder,
+    };
+  });
+
+  const sumFloorCents = allocationsWithRemainder.reduce((sum, a) => sum + a.allocatedCents, 0);
+  let remainderCents = totalBudgetCents - sumFloorCents;
+
+  // Sort by highest fractional remainder and distribute 1 cent each
+  allocationsWithRemainder
+    .sort((a, b) => b.fractionalRemainder - a.fractionalRemainder)
+    .forEach((item) => {
+      if (remainderCents > 0) {
+        item.allocatedCents += 1;
+        remainderCents -= 1;
+      }
+    });
+
+  // Re-sort back by original id order
+  return allocationsWithRemainder
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(({ fractionalRemainder: _, ...alloc }) => alloc);
+}
+
 export function generateDeterministicPlan(input: EventCreationInput): AIEventPlanResponse {
   const themePreset = THEME_PRESETS[input.eventType] || THEME_PRESETS.default;
+  const totalBudgetCents = dollarsToCents(input.totalBudget);
 
-  // Determine budget splits based on event type
-  const total = input.totalBudget;
-  let allocPercentages: { category: any; name: string; pct: number }[] = [];
+  let allocPercentages: { category: any; name: string; pct: number }[];
 
   if (input.eventType === 'wedding') {
     allocPercentages = [
@@ -150,14 +196,8 @@ export function generateDeterministicPlan(input: EventCreationInput): AIEventPla
     ];
   }
 
-  const allocations = allocPercentages.map((item, idx) => ({
-    id: `alloc-${idx + 1}`,
-    category: item.category,
-    name: item.name,
-    percentage: item.pct,
-    allocatedAmount: Math.round((total * item.pct) / 100),
-    actualSpent: 0,
-  }));
+  // Exact Largest-Remainder Allocation Reconciliation
+  const allocations = reconcileBudgetCents(totalBudgetCents, allocPercentages);
 
   // Timeline Milestones
   const milestones = [
@@ -259,7 +299,7 @@ export function generateDeterministicPlan(input: EventCreationInput): AIEventPla
       id: 'vc-venue',
       category: 'venue' as const,
       name: 'Venue Management',
-      recommendedBudget: Math.round(total * 0.28),
+      recommendedBudgetCents: Math.round(totalBudgetCents * 0.28),
       checklist: [
         { id: 'vck-1', task: 'Confirm venue certificate of insurance and licensing', isCompleted: false },
         { id: 'vck-2', task: 'Lock in load-in and load-out access windows', isCompleted: false },
@@ -271,7 +311,7 @@ export function generateDeterministicPlan(input: EventCreationInput): AIEventPla
       id: 'vc-catering',
       category: 'catering' as const,
       name: 'Catering & Beverage Service',
-      recommendedBudget: Math.round(total * 0.36),
+      recommendedBudgetCents: Math.round(totalBudgetCents * 0.36),
       checklist: [
         { id: 'vck-4', task: `Submit dietary breakdown for ${input.guestCount} attendees`, isCompleted: false },
         { id: 'vck-5', task: 'Confirm bar package and signature cocktail ingredients', isCompleted: false },
@@ -283,7 +323,7 @@ export function generateDeterministicPlan(input: EventCreationInput): AIEventPla
       id: 'vc-entertainment',
       category: 'entertainment' as const,
       name: 'Audio/Visual & Entertainment',
-      recommendedBudget: Math.round(total * 0.12),
+      recommendedBudgetCents: Math.round(totalBudgetCents * 0.12),
       checklist: [
         { id: 'vck-7', task: 'Confirm wireless microphones and speaker setup', isCompleted: false },
         { id: 'vck-8', task: 'Share timeline cue sheet with DJ / musicians', isCompleted: false },

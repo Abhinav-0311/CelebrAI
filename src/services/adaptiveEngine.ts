@@ -1,10 +1,11 @@
-import { CelebrAIEvent, AdaptiveRippleAlert } from '../types/event';
+import { CelebrAIEvent, AdaptiveRippleAlert, formatCurrency } from '../types/event';
+import { reconcileBudgetCents } from './offlinePlanner';
 
 /**
- * The Adaptive Event Intelligence Engine
- * Cross-module reactive engine that detects adjustments, computes deterministic
- * ripple impacts across Budget, Catering, Seating, and Logistics, and creates
- * actionable Diff Review recommendations.
+ * The Adaptive Event Intelligence Engine (Phase 0.2 Specification)
+ * Pure functional reactive engine that computes deterministic ripple impacts
+ * across Budget (Cents), Catering, Seating, and Logistics, while preserving
+ * financial reconciliation invariants and existing expense commitments.
  */
 
 export function analyzeGuestCountChange(
@@ -24,55 +25,57 @@ export function analyzeGuestCountChange(
 
   // Find catering allocation
   const cateringAlloc = currentEvent.budget.allocations.find((a) => a.category === 'catering');
-  const totalCatering = cateringAlloc ? cateringAlloc.allocatedAmount : currentEvent.budget.totalBudget * 0.35;
-  const estimatedCostPerGuest = totalCatering / oldCount;
-  const cateringDelta = Math.round(deltaGuests * estimatedCostPerGuest);
+  const totalCateringCents = cateringAlloc ? cateringAlloc.allocatedCents : Math.round(currentEvent.budget.totalBudgetCents * 0.35);
+  const estimatedCostPerGuestCents = Math.round(totalCateringCents / oldCount);
+  const cateringDeltaCents = deltaGuests * estimatedCostPerGuestCents;
 
-  // Check budget headroom
+  // Check budget headroom in contingency
   const contingencyAlloc = currentEvent.budget.allocations.find((a) => a.category === 'contingency');
-  const availableContingency = contingencyAlloc ? contingencyAlloc.allocatedAmount - contingencyAlloc.actualSpent : 0;
+  const availableContingencyCents = contingencyAlloc ? Math.max(0, contingencyAlloc.allocatedCents - contingencyAlloc.actualSpentCents) : 0;
   
-  const isBudgetExceeded = deltaGuests > 0 && cateringDelta > availableContingency;
+  const isBudgetExceeded = deltaGuests > 0 && cateringDeltaCents > availableContingencyCents;
   const severity: 'low' | 'medium' | 'high' = Math.abs(deltaGuests) > 30 || isBudgetExceeded ? 'high' : Math.abs(deltaGuests) > 10 ? 'medium' : 'low';
 
   const title = deltaGuests > 0
-    ? `Guest Count Expansion: +${deltaGuests} Guests (${oldCount} → ${newGuestCount})`
-    : `Guest Count Reduction: ${deltaGuests} Guests (${oldCount} → ${newGuestCount})`;
+    ? `Guest Expansion: +${deltaGuests} Guests (${oldCount} → ${newGuestCount})`
+    : `Guest Reduction: ${deltaGuests} Guests (${oldCount} → ${newGuestCount})`;
 
   const impactSummary = deltaGuests > 0
-    ? `Increasing guests to ${newGuestCount} requires an estimated +$${cateringDelta.toLocaleString()} for catering and bar, plus ${tableDelta} additional table(s). ${
-        isBudgetExceeded ? `Warning: Exceeds remaining contingency reserve by $${(cateringDelta - availableContingency).toLocaleString()}.` : 'Sufficient contingency reserves are available.'
+    ? `Increasing guests to ${newGuestCount} requires an estimated +${formatCurrency(cateringDeltaCents, currentEvent.budget.currency)} for catering/bar, plus ${tableDelta} additional table(s). ${
+        isBudgetExceeded
+          ? `Warning: Exceeds uncommitted contingency reserve by ${formatCurrency(cateringDeltaCents - availableContingencyCents, currentEvent.budget.currency)}.`
+          : `Contingency reserve (${formatCurrency(availableContingencyCents, currentEvent.budget.currency)}) can absorb this adjustment.`
       }`
-    : `Decreasing guests to ${newGuestCount} frees up an estimated $${Math.abs(cateringDelta).toLocaleString()} in catering resources and removes ${Math.abs(tableDelta)} table(s).`;
+    : `Decreasing guests to ${newGuestCount} frees up an estimated ${formatCurrency(Math.abs(cateringDeltaCents), currentEvent.budget.currency)} in catering resources and removes ${Math.abs(tableDelta)} table(s).`;
 
   const recommendedActions: AdaptiveRippleAlert['recommendedActions'] = [];
 
   if (deltaGuests > 0) {
     recommendedActions.push({
       actionType: 'recalculate_catering',
-      description: `Increase catering allocation from $${totalCatering.toLocaleString()} to $${(totalCatering + cateringDelta).toLocaleString()} (+$${cateringDelta.toLocaleString()})`,
+      description: `Reallocate ${formatCurrency(cateringDeltaCents, currentEvent.budget.currency)} to Catering (New allocation: ${formatCurrency(totalCateringCents + cateringDeltaCents, currentEvent.budget.currency)})`,
     });
     if (tableDelta > 0) {
       recommendedActions.push({
         actionType: 'adjust_tables',
-        description: `Add ${tableDelta} table(s) to floor layout (new total: ${newTables} tables for capacity of ${newTables * tableCapacity} seats)`,
+        description: `Add ${tableDelta} table(s) to floor layout (New total: ${newTables} tables for capacity of ${newTables * tableCapacity} seats)`,
       });
     }
     if (isBudgetExceeded) {
       recommendedActions.push({
         actionType: 'update_budget',
-        description: `Expand total event budget by $${(cateringDelta - availableContingency).toLocaleString()} or reallocate from decor/entertainment`,
+        description: `Expand total budget by ${formatCurrency(cateringDeltaCents - availableContingencyCents, currentEvent.budget.currency)} or rebalance secondary categories`,
       });
     }
   } else {
     recommendedActions.push({
       actionType: 'recalculate_catering',
-      description: `Reclaim $${Math.abs(cateringDelta).toLocaleString()} from catering allocation to surplus or contingency`,
+      description: `Reclaim ${formatCurrency(Math.abs(cateringDeltaCents), currentEvent.budget.currency)} from catering allocation to contingency reserve`,
     });
     if (tableDelta < 0) {
       recommendedActions.push({
         actionType: 'adjust_tables',
-        description: `Consolidate floor layout: remove ${Math.abs(tableDelta)} table(s) (new total: ${newTables} tables)`,
+        description: `Consolidate floor layout: remove ${Math.abs(tableDelta)} table(s) (New total: ${newTables} tables)`,
       });
     }
   }
@@ -86,9 +89,9 @@ export function analyzeGuestCountChange(
     severity,
     impactSummary,
     calculatedDiffs: {
-      cateringDelta,
-      seatingDelta: tableDelta,
-      budgetVariance: isBudgetExceeded ? cateringDelta - availableContingency : 0,
+      cateringDeltaCents,
+      seatingDeltaTables: tableDelta,
+      budgetVarianceCents: isBudgetExceeded ? cateringDeltaCents - availableContingencyCents : 0,
     },
     recommendedActions,
     status: 'pending_review',
@@ -98,45 +101,45 @@ export function analyzeGuestCountChange(
 
 export function analyzeBudgetChange(
   currentEvent: CelebrAIEvent,
-  newTotalBudget: number
+  newTotalBudgetCents: number
 ): AdaptiveRippleAlert | null {
-  const oldBudget = currentEvent.budget.totalBudget;
-  if (newTotalBudget === oldBudget || newTotalBudget <= 0) {
+  const oldBudgetCents = currentEvent.budget.totalBudgetCents;
+  if (newTotalBudgetCents === oldBudgetCents || newTotalBudgetCents <= 0) {
     return null;
   }
 
-  const deltaBudget = newTotalBudget - oldBudget;
-  const totalActualSpent = currentEvent.budget.allocations.reduce((sum, a) => sum + a.actualSpent, 0);
-  const isDeficit = newTotalBudget < totalActualSpent;
+  const deltaBudgetCents = newTotalBudgetCents - oldBudgetCents;
+  const totalActualSpentCents = currentEvent.budget.allocations.reduce((sum, a) => sum + a.actualSpentCents, 0);
+  const isDeficit = newTotalBudgetCents < totalActualSpentCents;
 
-  const severity: 'low' | 'medium' | 'high' = isDeficit ? 'high' : Math.abs(deltaBudget) / oldBudget > 0.2 ? 'medium' : 'low';
-  const title = deltaBudget > 0
-    ? `Budget Expansion: +$${deltaBudget.toLocaleString()} ($${oldBudget.toLocaleString()} → $${newTotalBudget.toLocaleString()})`
-    : `Budget Reduction: -$${Math.abs(deltaBudget).toLocaleString()} ($${oldBudget.toLocaleString()} → $${newTotalBudget.toLocaleString()})`;
+  const severity: 'low' | 'medium' | 'high' = isDeficit ? 'high' : Math.abs(deltaBudgetCents) / oldBudgetCents > 0.2 ? 'medium' : 'low';
+  const title = deltaBudgetCents > 0
+    ? `Budget Expansion: +${formatCurrency(deltaBudgetCents, currentEvent.budget.currency)}`
+    : `Budget Reduction: -${formatCurrency(Math.abs(deltaBudgetCents), currentEvent.budget.currency)}`;
 
   const impactSummary = isDeficit
-    ? `Critical: The proposed budget ($${newTotalBudget.toLocaleString()}) is less than existing committed expenditures ($${totalActualSpent.toLocaleString()}) by $${(totalActualSpent - newTotalBudget).toLocaleString()}.`
-    : `Proportionally rebalancing allocations across all categories to reflect the updated $${newTotalBudget.toLocaleString()} budget envelope.`;
+    ? `Critical Deficit: Proposed budget (${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)}) is less than already committed expenditures (${formatCurrency(totalActualSpentCents, currentEvent.budget.currency)}) by ${formatCurrency(totalActualSpentCents - newTotalBudgetCents, currentEvent.budget.currency)}.`
+    : `Proportionally scaling category allocations to match the updated ${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)} budget envelope while protecting all committed expenses.`;
 
   const recommendedActions: AdaptiveRippleAlert['recommendedActions'] = [
     {
       actionType: 'update_budget',
-      description: `Proportionally scale category allocations to match $${newTotalBudget.toLocaleString()}`,
+      description: `Rebalance category allocations to total exactly ${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)} without violating committed expense minimums`,
     },
   ];
 
   return {
     id: `ripple-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     triggerType: 'budget_change',
-    previousValue: oldBudget,
-    newValue: newTotalBudget,
+    previousValue: oldBudgetCents,
+    newValue: newTotalBudgetCents,
     title,
     severity,
     impactSummary,
     calculatedDiffs: {
-      cateringDelta: 0,
-      seatingDelta: 0,
-      budgetVariance: deltaBudget,
+      cateringDeltaCents: 0,
+      seatingDeltaTables: 0,
+      budgetVarianceCents: deltaBudgetCents,
     },
     recommendedActions,
     status: 'pending_review',
@@ -146,6 +149,9 @@ export function analyzeBudgetChange(
 
 /**
  * Pure function to apply approved ripple modifications to the event state.
+ * Preserves strict financial invariants:
+ * 1. sum(allocations.allocatedCents) === totalBudgetCents exactly.
+ * 2. allocations.allocatedCents >= allocations.actualSpentCents for all categories.
  */
 export function applyRipplePatch(
   event: CelebrAIEvent,
@@ -156,30 +162,77 @@ export function applyRipplePatch(
   if (alert.triggerType === 'guest_count_change') {
     const newCount = Number(alert.newValue);
     updated.guestCount = newCount;
-    
-    // Update catering allocation if requested
+    const deltaCents = alert.calculatedDiffs.cateringDeltaCents;
+
     const cateringIdx = updated.budget.allocations.findIndex((a) => a.category === 'catering');
-    if (cateringIdx !== -1) {
-      const currentAlloc = updated.budget.allocations[cateringIdx].allocatedAmount;
-      const newAlloc = Math.max(0, currentAlloc + alert.calculatedDiffs.cateringDelta);
-      updated.budget.allocations[cateringIdx].allocatedAmount = newAlloc;
-      // Adjust total budget accordingly if expanding
-      if (alert.calculatedDiffs.budgetVariance > 0) {
-        updated.budget.totalBudget += alert.calculatedDiffs.budgetVariance;
+    const contingencyIdx = updated.budget.allocations.findIndex((a) => a.category === 'contingency');
+
+    if (cateringIdx !== -1 && deltaCents !== 0) {
+      if (deltaCents > 0) {
+        // Expand catering
+        const contingency = contingencyIdx !== -1 ? updated.budget.allocations[contingencyIdx] : null;
+        const availableContingency = contingency ? Math.max(0, contingency.allocatedCents - contingency.actualSpentCents) : 0;
+
+        if (availableContingency >= deltaCents && contingency) {
+          // Absorb via contingency: zero budget inflation
+          updated.budget.allocations[cateringIdx].allocatedCents += deltaCents;
+          contingency.allocatedCents -= deltaCents;
+        } else {
+          // Deficit exceeds contingency: expand total budget by difference to reconcile
+          const deficit = deltaCents - availableContingency;
+          if (contingency) {
+            contingency.allocatedCents -= availableContingency;
+          }
+          updated.budget.allocations[cateringIdx].allocatedCents += deltaCents;
+          updated.budget.totalBudgetCents += deficit;
+        }
+      } else {
+        // Reduced guests: return funds to contingency
+        const reclaimed = Math.abs(deltaCents);
+        const currentCatering = updated.budget.allocations[cateringIdx].allocatedCents;
+        const cateringActual = updated.budget.allocations[cateringIdx].actualSpentCents;
+        const safeReclaim = Math.min(reclaimed, currentCatering - cateringActual);
+
+        updated.budget.allocations[cateringIdx].allocatedCents -= safeReclaim;
+        if (contingencyIdx !== -1) {
+          updated.budget.allocations[contingencyIdx].allocatedCents += safeReclaim;
+        }
       }
     }
 
     // Update guest dietary summary total
-    updated.guests.dietarySummary.totalGuests = newCount;
+    updated.guests.dietarySummary.totalInvited = newCount;
   } else if (alert.triggerType === 'budget_change') {
-    const newTotal = Number(alert.newValue);
-    updated.budget.totalBudget = newTotal;
-    // Scale allocations proportionally
-    const totalPercentage = updated.budget.allocations.reduce((sum, a) => sum + a.percentage, 0) || 100;
-    updated.budget.allocations = updated.budget.allocations.map((a) => ({
-      ...a,
-      allocatedAmount: Math.round((newTotal * a.percentage) / totalPercentage),
+    const newTotalCents = Number(alert.newValue);
+    updated.budget.totalBudgetCents = newTotalCents;
+
+    // Reconcile allocations while protecting actual spent commitments
+    const currentAllocations = updated.budget.allocations;
+    const percentages = currentAllocations.map((a) => ({
+      category: a.category,
+      name: a.name,
+      pct: a.percentage,
     }));
+
+    const reconciled = reconcileBudgetCents(newTotalCents, percentages);
+
+    // Ensure no category drops below its actual committed expenditure
+    updated.budget.allocations = currentAllocations.map((orig) => {
+      const match = reconciled.find((r) => r.category === orig.category);
+      const targetCents = match ? match.allocatedCents : orig.allocatedCents;
+      return {
+        ...orig,
+        allocatedCents: Math.max(orig.actualSpentCents, targetCents),
+      };
+    });
+
+    // Final sum adjustment: if floors created a discrepancy, balance in contingency
+    const sumCents = updated.budget.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
+    const diff = newTotalCents - sumCents;
+    const contingency = updated.budget.allocations.find((a) => a.category === 'contingency');
+    if (contingency && diff !== 0) {
+      contingency.allocatedCents = Math.max(contingency.actualSpentCents, contingency.allocatedCents + diff);
+    }
   }
 
   // Mark alert as applied

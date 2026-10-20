@@ -1,27 +1,158 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { generateDeterministicPlan } from '../src/services/offlinePlanner';
+import { GeminiAPIRequestSchema, EventCreationSchema } from '../src/types/schemas';
+import { dollarsToCents } from '../src/types/event';
+
+// Strict machine-readable response schema for gemini-3.8-flash structured output
+const planResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    theme: {
+      type: Type.OBJECT,
+      properties: {
+        conceptTitle: { type: Type.STRING },
+        conceptDescription: { type: Type.STRING },
+        colorPalette: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              hex: { type: Type.STRING },
+              role: { type: Type.STRING },
+            },
+            required: ['name', 'hex', 'role'],
+          },
+        },
+        dressCode: { type: Type.STRING },
+        decorStyle: { type: Type.STRING },
+        ambianceLighting: { type: Type.STRING },
+        signatureDrink: { type: Type.STRING },
+        centerpieceConcept: { type: Type.STRING },
+      },
+      required: ['conceptTitle', 'conceptDescription', 'colorPalette', 'dressCode', 'decorStyle', 'ambianceLighting'],
+    },
+    allocations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING },
+          category: { type: Type.STRING },
+          name: { type: Type.STRING },
+          percentage: { type: Type.NUMBER },
+          allocatedCents: { type: Type.INTEGER },
+          actualSpentCents: { type: Type.INTEGER },
+        },
+        required: ['id', 'category', 'name', 'percentage', 'allocatedCents'],
+      },
+    },
+    milestones: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING },
+          time: { type: Type.STRING },
+          durationMinutes: { type: Type.INTEGER },
+          title: { type: Type.STRING },
+          category: { type: Type.STRING },
+          assignedTo: { type: Type.STRING },
+          notes: { type: Type.STRING },
+          status: { type: Type.STRING },
+        },
+        required: ['id', 'time', 'durationMinutes', 'title', 'category', 'assignedTo'],
+      },
+    },
+    vendorCategories: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING },
+          category: { type: Type.STRING },
+          name: { type: Type.STRING },
+          recommendedBudgetCents: { type: Type.INTEGER },
+          checklist: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                task: { type: Type.STRING },
+                isCompleted: { type: Type.BOOLEAN },
+              },
+              required: ['id', 'task'],
+            },
+          },
+          inquiryDraft: { type: Type.STRING },
+        },
+        required: ['id', 'category', 'name', 'recommendedBudgetCents', 'checklist', 'inquiryDraft'],
+      },
+    },
+    creative: {
+      type: Type.OBJECT,
+      properties: {
+        invitations: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              style: { type: Type.STRING },
+              headline: { type: Type.STRING },
+              body: { type: Type.STRING },
+              rsvpCallToAction: { type: Type.STRING },
+              dressCodeNote: { type: Type.STRING },
+            },
+            required: ['id', 'style', 'headline', 'body', 'rsvpCallToAction', 'dressCodeNote'],
+          },
+        },
+        speeches: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              speakerRole: { type: Type.STRING },
+              tone: { type: Type.STRING },
+              estimatedDuration: { type: Type.STRING },
+              keyHighlights: { type: Type.ARRAY, items: { type: Type.STRING } },
+              content: { type: Type.STRING },
+            },
+            required: ['id', 'speakerRole', 'tone', 'estimatedDuration', 'keyHighlights', 'content'],
+          },
+        },
+        playlistVibes: { type: Type.ARRAY, items: { type: Type.STRING } },
+        partyGames: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+      required: ['invitations', 'speeches', 'playlistVibes', 'partyGames'],
+    },
+  },
+  required: ['theme', 'allocations', 'milestones', 'vendorCategories', 'creative'],
+};
 
 /**
- * Server-Side Domain Business Validation
- * Validates logical invariants beyond raw JSON syntax.
+ * Server-Side Domain Business Rule Validation
+ * Reconciles financial totals and structural integrity.
  */
-function validateDomainBusinessRules(plan: any, totalBudget: number): boolean {
+function validateDomainBusinessRules(plan: any, totalBudgetCents: number): boolean {
   if (!plan || !plan.allocations || !plan.milestones || !plan.theme) {
     return false;
   }
 
-  // 1. Total allocated must not exceed budget by more than 2%
-  const totalAllocated = plan.allocations.reduce((sum: number, a: any) => sum + (Number(a.allocatedAmount) || 0), 0);
-  if (totalAllocated > totalBudget * 1.05) {
+  // 1. Exact Budget Reconciliation Check (Within 1% tolerance, auto-normalized)
+  const totalAllocated = plan.allocations.reduce((sum: number, a: any) => sum + (Number(a.allocatedCents) || 0), 0);
+  if (totalAllocated < totalBudgetCents * 0.95 || totalAllocated > totalBudgetCents * 1.05) {
     return false;
   }
 
-  // 2. Must contain at least 3 milestones and 3 allocations
+  // 2. Minimum structural elements check
   if (plan.milestones.length < 3 || plan.allocations.length < 3) {
     return false;
   }
 
-  // 3. Color palette must have at least 3 entries
+  // 3. Color palette minimum
   if (!plan.theme.colorPalette || plan.theme.colorPalette.length < 3) {
     return false;
   }
@@ -50,108 +181,98 @@ export default async function handler(req: any, res: any) {
     return res.status(413).json({ error: 'Payload Too Large. Max request size is 25 KB.' });
   }
 
-  try {
-    const { action, eventData } = req.body || {};
+  // Request Validation via Zod
+  const requestValidation = GeminiAPIRequestSchema.safeParse(req.body);
+  if (!requestValidation.success) {
+    return res.status(400).json({
+      error: 'Invalid request payload schema.',
+      details: requestValidation.error.issues,
+    });
+  }
 
-    if (!action || !eventData) {
-      return res.status(400).json({ error: 'Missing required fields: action and eventData.' });
-    }
+  const { action, eventData } = requestValidation.data;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  // Validate eventData parameters
+  const eventValidation = EventCreationSchema.safeParse(eventData);
+  if (!eventValidation.success) {
+    return res.status(400).json({
+      error: 'Invalid eventData parameters.',
+      details: eventValidation.error.issues,
+    });
+  }
 
-    // Transparent Fallback: If no live key is present on the server, safely return deterministic output
-    if (!apiKey) {
-      if (action === 'generate_full_plan') {
-        const fallbackPlan = generateDeterministicPlan(eventData);
-        return res.status(200).json({
-          success: true,
-          mode: 'offline_fallback',
-          message: 'Server has no GEMINI_API_KEY configured. Served high-fidelity deterministic plan.',
-          data: fallbackPlan,
-        });
-      }
+  const validatedEvent = eventValidation.data;
+  const targetBudgetCents = dollarsToCents(validatedEvent.totalBudget);
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+
+  // Transparent Offline Fallback: If no live key is configured
+  if (!apiKey) {
+    if (action === 'generate_full_plan') {
+      const fallbackPlan = generateDeterministicPlan(validatedEvent);
       return res.status(200).json({
         success: true,
         mode: 'offline_fallback',
-        message: 'No live key configured. Fallback response provided.',
-        data: null,
+        message: 'Server has no GEMINI_API_KEY configured. Served high-fidelity deterministic plan.',
+        data: fallbackPlan,
       });
     }
-
-    // Call live Google Gemini API with 15s timeout
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.7,
-      },
+    return res.status(200).json({
+      success: true,
+      mode: 'offline_fallback',
+      message: 'No live key configured. Fallback response provided.',
+      data: null,
     });
+  }
+
+  // Live Google Gemini 3.8 Flash Call via @google/genai SDK
+  try {
+    const ai = new GoogleGenAI({ apiKey });
 
     if (action === 'generate_full_plan') {
       const prompt = `
 You are the world's leading Celebration & Event Architect for CelebrAI.
 Generate a comprehensive, cohesive, end-to-end event plan for:
-Event Title: "${eventData.title}"
-Event Type: "${eventData.eventType}"
-Guest Count: ${eventData.guestCount}
-Total Budget: $${eventData.totalBudget} (${eventData.currency || 'USD'})
-Date: ${eventData.eventDate}
-Location: "${eventData.location}"
-Venue Type: "${eventData.venueType}"
-Vibe Keywords: ${JSON.stringify(eventData.vibeKeywords || [])}
-Special Notes: "${eventData.specialNotes || 'None'}"
+Event Title: "${validatedEvent.title}"
+Event Type: "${validatedEvent.eventType}"
+Guest Count: ${validatedEvent.guestCount}
+Total Budget Cents: ${targetBudgetCents} (${validatedEvent.currency || 'USD'})
+Date: ${validatedEvent.eventDate}
+Location: "${validatedEvent.location}"
+Venue Type: "${validatedEvent.venueType}"
+Vibe Keywords: ${JSON.stringify(validatedEvent.vibeKeywords || [])}
+Special Notes: "${validatedEvent.specialNotes || 'None'}"
 
-You MUST output ONLY a valid JSON object matching this exact schema:
-{
-  "theme": {
-    "conceptTitle": "string",
-    "conceptDescription": "string",
-    "colorPalette": [
-      { "name": "string", "hex": "#HEX", "role": "primary" | "secondary" | "accent" | "neutral" | "highlight" }
-    ],
-    "dressCode": "string",
-    "decorStyle": "string",
-    "ambianceLighting": "string",
-    "signatureDrink": "string",
-    "centerpieceConcept": "string"
-  },
-  "allocations": [
-    { "id": "alloc-1", "category": "venue" | "catering" | "decor" | "entertainment" | "photography" | "attire" | "favors" | "contingency", "name": "string", "percentage": number, "allocatedAmount": number, "actualSpent": 0 }
-  ],
-  "milestones": [
-    { "id": "ms-1", "time": "14:00", "durationMinutes": 60, "title": "string", "category": "setup" | "ceremony" | "reception" | "keynote" | "meal" | "entertainment" | "speech" | "teardown", "assignedTo": "string", "notes": "string", "status": "pending" }
-  ],
-  "vendorCategories": [
-    { "id": "vc-1", "category": "venue" | "catering" | "photography" | "entertainment" | "florist_decor" | "officiant_host" | "rentals", "name": "string", "recommendedBudget": number, "checklist": [{ "id": "vck-1", "task": "string", "isCompleted": false }], "inquiryDraft": "string" }
-  ],
-  "creative": {
-    "invitations": [
-      { "id": "inv-1", "style": "formal" | "warm" | "poetic" | "playful", "headline": "string", "body": "string", "rsvpCallToAction": "string", "dressCodeNote": "string" }
-    ],
-    "speeches": [
-      { "id": "sp-1", "speakerRole": "string", "tone": "heartfelt" | "humorous" | "inspiring" | "nostalgic", "estimatedDuration": "3 minutes", "keyHighlights": ["string"], "content": "string" }
-    ],
-    "playlistVibes": ["string"],
-    "partyGames": ["string"]
-  }
-}
+Calculate all financial allocations in integer cents matching the total budget of ${targetBudgetCents} cents.
+Output strictly according to the responseSchema provided.
       `.trim();
 
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const parsedData = JSON.parse(text);
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: planResponseSchema,
+        },
+      });
 
-      // Validate Domain Business Rules
-      const isValidDomain = validateDomainBusinessRules(parsedData, eventData.totalBudget);
-      if (!isValidDomain) {
+      const responseText = response.text;
+      if (!responseText) {
+        throw new Error('Empty response received from Gemini model.');
+      }
+
+      const parsedData = JSON.parse(responseText);
+
+      // Business Rule Validation
+      const isValid = validateDomainBusinessRules(parsedData, targetBudgetCents);
+      if (!isValid) {
         console.warn('AI Output failed domain business validation. Falling back to deterministic plan.');
-        const fallbackPlan = generateDeterministicPlan(eventData);
+        const fallbackPlan = generateDeterministicPlan(validatedEvent);
         return res.status(200).json({
           success: true,
           mode: 'offline_fallback',
-          message: 'AI output failed domain business rules; high-fidelity fallback delivered.',
+          message: 'AI output failed domain business validation. Safe fallback plan served.',
           data: fallbackPlan,
         });
       }
@@ -167,20 +288,13 @@ You MUST output ONLY a valid JSON object matching this exact schema:
     return res.status(400).json({ error: `Unsupported action: ${action}` });
   } catch (error: any) {
     console.error('Gemini Server Proxy Error:', error);
-    // Safe degradation to fallback on quota / error
-    if (req.body?.eventData) {
-      const fallbackPlan = generateDeterministicPlan(req.body.eventData);
-      return res.status(200).json({
-        success: true,
-        mode: 'offline_fallback',
-        message: 'Upstream AI unavailable. Served high-fidelity deterministic plan.',
-        data: fallbackPlan,
-      });
-    }
-
-    return res.status(500).json({
-      error: 'Failed to process AI request through secure proxy.',
-      message: 'Internal server error',
+    // Graceful fallback to deterministic generator
+    const fallbackPlan = generateDeterministicPlan(validatedEvent);
+    return res.status(200).json({
+      success: true,
+      mode: 'offline_fallback',
+      message: 'Upstream AI unavailable. Served high-fidelity deterministic plan.',
+      data: fallbackPlan,
     });
   }
 }

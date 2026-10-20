@@ -1,16 +1,18 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2, XCircle, ArrowRight, ShieldAlert } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
+import { formatCurrency } from '../../types/event';
 
 export const AdaptiveReviewModal: React.FC = () => {
   const {
+    currentEvent,
     isAdaptiveModalOpen,
     activeRippleAlert,
     applyRipple,
     dismissRipple,
   } = useEventStore();
 
-  if (!isAdaptiveModalOpen || !activeRippleAlert) return null;
+  if (!isAdaptiveModalOpen || !activeRippleAlert || !currentEvent) return null;
 
   const isGuestChange = activeRippleAlert.triggerType === 'guest_count_change';
   const isBudgetChange = activeRippleAlert.triggerType === 'budget_change';
@@ -82,14 +84,14 @@ export const AdaptiveReviewModal: React.FC = () => {
           <div>
             <p className="text-xs text-slate-500 dark:text-slate-400">Previous</p>
             <p className="text-lg font-bold text-slate-700 dark:text-slate-300">
-              {isBudgetChange ? `$${Number(activeRippleAlert.previousValue).toLocaleString()}` : `${activeRippleAlert.previousValue} guests`}
+              {isBudgetChange ? formatCurrency(Number(activeRippleAlert.previousValue), currentEvent.budget.currency) : `${activeRippleAlert.previousValue} guests`}
             </p>
           </div>
           <ArrowRight className="w-5 h-5 text-slate-400" />
           <div>
             <p className="text-xs text-brand-600 dark:text-brand-400 font-semibold">Updated</p>
             <p className="text-lg font-extrabold text-brand-600 dark:text-brand-400">
-              {isBudgetChange ? `$${Number(activeRippleAlert.newValue).toLocaleString()}` : `${activeRippleAlert.newValue} guests`}
+              {isBudgetChange ? formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency) : `${activeRippleAlert.newValue} guests`}
             </p>
           </div>
         </div>
@@ -109,14 +111,14 @@ export const AdaptiveReviewModal: React.FC = () => {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="text-xs text-slate-500 dark:text-slate-400">Catering Adjustment</span>
-              <p className={`text-base font-bold ${activeRippleAlert.calculatedDiffs.cateringDelta >= 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                {activeRippleAlert.calculatedDiffs.cateringDelta >= 0 ? '+' : ''}${activeRippleAlert.calculatedDiffs.cateringDelta.toLocaleString()}
+              <p className={`text-base font-bold font-mono ${activeRippleAlert.calculatedDiffs.cateringDeltaCents >= 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {activeRippleAlert.calculatedDiffs.cateringDeltaCents >= 0 ? '+' : ''}{formatCurrency(activeRippleAlert.calculatedDiffs.cateringDeltaCents, currentEvent.budget.currency)}
               </p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="text-xs text-slate-500 dark:text-slate-400">Floor Layout / Tables</span>
               <p className="text-base font-bold text-slate-900 dark:text-slate-100">
-                {activeRippleAlert.calculatedDiffs.seatingDelta >= 0 ? '+' : ''}{activeRippleAlert.calculatedDiffs.seatingDelta} table(s)
+                {activeRippleAlert.calculatedDiffs.seatingDeltaTables >= 0 ? '+' : ''}{activeRippleAlert.calculatedDiffs.seatingDeltaTables} table(s)
               </p>
             </div>
           </div>

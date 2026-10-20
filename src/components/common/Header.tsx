@@ -35,11 +35,11 @@ export const Header: React.FC = () => {
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        const ok = importEventJson(content);
-        if (ok) {
+        const res = importEventJson(content);
+        if (res.success) {
           alert('Event data successfully imported!');
         } else {
-          alert('Failed to import event. Please check the JSON format.');
+          alert(res.error || 'Failed to import event. Invalid format.');
         }
       }
     };

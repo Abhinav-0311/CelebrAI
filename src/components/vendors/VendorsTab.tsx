@@ -10,6 +10,7 @@ import {
   UserCheck 
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
+import { formatCurrency } from '../../types/event';
 
 export const VendorsTab: React.FC = () => {
   const { currentEvent, toggleVendorChecklist } = useEventStore();
@@ -78,7 +79,7 @@ export const VendorsTab: React.FC = () => {
                     <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
                       <span className="flex items-center gap-1 font-mono">
                         <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-                        Target: ${cat.recommendedBudget.toLocaleString()}
+                        Target: {formatCurrency(cat.recommendedBudgetCents, currentEvent.budget.currency)}
                       </span>
                       {cat.confirmedVendorName && (
                         <span className="flex items-center gap-1 text-slate-700 dark:text-slate-300 font-semibold">

@@ -1,6 +1,7 @@
 /**
- * CelebrAI Domain Types
- * Single source of truth for the event planning platform.
+ * CelebrAI Domain Types (Phase 0.2 Specification)
+ * Strictly enforces integer minor currency units (cents/paise) to prevent
+ * floating-point rounding errors and drift.
  */
 
 export type EventType =
@@ -32,22 +33,32 @@ export interface EventTheme {
   centerpieceConcept?: string;
 }
 
+export type BudgetCategory = 
+  | 'venue' 
+  | 'catering' 
+  | 'decor' 
+  | 'entertainment' 
+  | 'photography' 
+  | 'attire' 
+  | 'favors' 
+  | 'contingency';
+
 export interface BudgetAllocation {
   id: string;
-  category: 'venue' | 'catering' | 'decor' | 'entertainment' | 'photography' | 'attire' | 'favors' | 'contingency';
+  category: BudgetCategory;
   name: string;
   percentage: number;
-  allocatedAmount: number;
-  actualSpent: number;
+  allocatedCents: number; // Integer minor currency units (e.g. 1500000 = $15,000.00)
+  actualSpentCents: number; // Integer minor currency units
 }
 
 export interface ExpenseItem {
   id: string;
   allocationId: string;
   name: string;
-  category: BudgetAllocation['category'];
-  estimatedCost: number;
-  actualCost: number;
+  category: BudgetCategory;
+  estimatedCents: number; // Integer minor currency units
+  actualCents: number; // Integer minor currency units
   vendor?: string;
   isPaid: boolean;
   notes?: string;
@@ -55,11 +66,11 @@ export interface ExpenseItem {
 }
 
 export interface BudgetPlan {
-  totalBudget: number;
-  currency: string;
+  totalBudgetCents: number; // Integer minor currency units
+  currency: string; // ISO 4217 code, e.g. "USD", "INR", "EUR"
   allocations: BudgetAllocation[];
   expenses: ExpenseItem[];
-  contingencyRate: number; // e.g. 5%
+  contingencyRate: number; // e.g. 0.05
 }
 
 export type RSVPStatus = 'attending' | 'declined' | 'pending';
@@ -71,7 +82,7 @@ export interface Guest {
   email?: string;
   phone?: string;
   rsvpStatus: RSVPStatus;
-  plusOnes: number;
+  plusOnes: number; // Extra guests accompanying this attendee
   dietary: DietaryRequirement[];
   dietaryNotes?: string;
   tableNumber?: number;
@@ -79,13 +90,14 @@ export interface Guest {
 }
 
 export interface DietarySummary {
-  totalGuests: number;
-  attendingGuests: number;
-  veganCount: number;
-  vegetarianCount: number;
-  glutenFreeCount: number;
-  halalCount: number;
-  nutAllergyCount: number;
+  totalInvited: number; // Including plus-ones
+  confirmedAttending: number; // Attending guests + their plus-ones
+  confirmedVegan: number;
+  confirmedVegetarian: number;
+  confirmedGlutenFree: number;
+  confirmedHalal: number;
+  confirmedNutAllergy: number;
+  potentialDietaryCount: number; // From pending RSVPs
   otherCount: number;
 }
 
@@ -108,6 +120,7 @@ export interface TimelinePlan {
   date: string;
   startTime: string;
   endTime: string;
+  timezone: string; // IANA timezone, e.g. "America/Los_Angeles"
   milestones: TimelineMilestone[];
   isDayOfLiveActive: boolean;
 }
@@ -122,7 +135,7 @@ export interface VendorCategory {
   id: string;
   category: 'venue' | 'catering' | 'photography' | 'entertainment' | 'florist_decor' | 'officiant_host' | 'rentals';
   name: string;
-  recommendedBudget: number;
+  recommendedBudgetCents: number;
   confirmedVendorName?: string;
   contactEmail?: string;
   checklist: VendorChecklistItem[];
@@ -140,9 +153,9 @@ export interface InvitationDraft {
 
 export interface SpeechDraft {
   id: string;
-  speakerRole: string; // e.g. "Maid of Honor", "Host", "Colleague"
+  speakerRole: string;
   tone: 'heartfelt' | 'humorous' | 'inspiring' | 'nostalgic';
-  estimatedDuration: string; // e.g. "3-4 minutes"
+  estimatedDuration: string;
   keyHighlights: string[];
   content: string;
 }
@@ -163,9 +176,9 @@ export interface AdaptiveRippleAlert {
   severity: 'low' | 'medium' | 'high';
   impactSummary: string;
   calculatedDiffs: {
-    cateringDelta: number;
-    seatingDelta: number;
-    budgetVariance: number;
+    cateringDeltaCents: number;
+    seatingDeltaTables: number;
+    budgetVarianceCents: number;
   };
   recommendedActions: {
     actionType: 'update_budget' | 'recalculate_catering' | 'adjust_tables' | 'update_timeline';
@@ -177,11 +190,13 @@ export interface AdaptiveRippleAlert {
 }
 
 export interface CelebrAIEvent {
+  schemaVersion: number; // Schema migration version (1)
   id: string;
   title: string;
   eventType: EventType;
   guestCount: number;
   eventDate: string;
+  timezone: string;
   location: string;
   venueType: 'indoor' | 'outdoor' | 'ballroom' | 'beach' | 'garden' | 'restaurant' | 'rooftop' | 'private_residence';
   vibeKeywords: string[];
@@ -202,4 +217,25 @@ export interface CelebrAIEvent {
   appliedRipplesCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Currency Minor Unit Helper Functions
+ */
+export function formatCurrency(cents: number, currency = 'USD'): string {
+  const dollars = cents / 100;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  }).format(dollars);
+}
+
+export function dollarsToCents(dollars: number): number {
+  return Math.round(dollars * 100);
+}
+
+export function centsToDollars(cents: number): number {
+  return cents / 100;
 }

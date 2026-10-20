@@ -17,14 +17,17 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
+import { formatCurrency, dollarsToCents, centsToDollars } from '../../types/event';
 
 export const OverviewTab: React.FC = () => {
-  const { currentEvent, updateGuestCount, updateTotalBudget, setActiveTab } = useEventStore();
+  const { currentEvent, updateGuestCount, updateTotalBudgetCents, setActiveTab } = useEventStore();
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
 
   // Local state for Quick-Adjust inputs
   const [tempGuests, setTempGuests] = useState<number>(currentEvent?.guestCount || 100);
-  const [tempBudget, setTempBudget] = useState<number>(currentEvent?.budget.totalBudget || 25000);
+  const [tempBudgetDollars, setTempBudgetDollars] = useState<number>(
+    currentEvent ? centsToDollars(currentEvent.budget.totalBudgetCents) : 25000
+  );
 
   if (!currentEvent) {
     return (
@@ -38,11 +41,11 @@ export const OverviewTab: React.FC = () => {
 
   const { theme, budget, guests, timeline } = currentEvent;
 
-  // KPIs
-  const totalBudget = budget.totalBudget;
-  const actualSpent = budget.allocations.reduce((sum, a) => sum + a.actualSpent, 0);
-  const remainingBudget = totalBudget - actualSpent;
-  const attendingGuests = guests.list.filter((g) => g.rsvpStatus === 'attending').length;
+  // Quantitative metrics in integer cents
+  const totalBudgetCents = budget.totalBudgetCents;
+  const actualSpentCents = budget.allocations.reduce((sum, a) => sum + a.actualSpentCents, 0);
+  const remainingCents = totalBudgetCents - actualSpentCents;
+  const attendingCount = guests.dietarySummary.confirmedAttending;
   const completedMilestones = timeline.milestones.filter((m) => m.status === 'completed').length;
 
   const handleCopyHex = (hex: string) => {
@@ -58,8 +61,9 @@ export const OverviewTab: React.FC = () => {
   };
 
   const handleApplyBudgetChange = () => {
-    if (tempBudget !== currentEvent.budget.totalBudget && tempBudget > 0) {
-      updateTotalBudget(tempBudget);
+    const targetCents = dollarsToCents(tempBudgetDollars);
+    if (targetCents !== currentEvent.budget.totalBudgetCents && targetCents > 0) {
+      updateTotalBudgetCents(targetCents);
     }
   };
 
@@ -165,14 +169,14 @@ export const OverviewTab: React.FC = () => {
                 id="adjust-budget"
                 type="number"
                 step="1000"
-                value={tempBudget}
-                onChange={(e) => setTempBudget(parseFloat(e.target.value) || 0)}
+                value={tempBudgetDollars}
+                onChange={(e) => setTempBudgetDollars(parseFloat(e.target.value) || 0)}
                 className="w-20 text-xs font-bold bg-transparent text-slate-900 dark:text-slate-100 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={handleApplyBudgetChange}
-                disabled={tempBudget === currentEvent.budget.totalBudget}
+                disabled={dollarsToCents(tempBudgetDollars) === currentEvent.budget.totalBudgetCents}
                 className="text-xs font-semibold px-2 py-0.5 rounded bg-brand-600 text-white disabled:opacity-30 hover:bg-brand-700 transition"
               >
                 Rebalance
@@ -187,14 +191,14 @@ export const OverviewTab: React.FC = () => {
         {/* Total Budget */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Total Budget</span>
+            <span className="text-xs font-medium">Total Budget Target</span>
             <DollarSign className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
-            ${totalBudget.toLocaleString()}
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">
+            {formatCurrency(totalBudgetCents, budget.currency)}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            ${remainingBudget.toLocaleString()} remaining
+            {formatCurrency(remainingCents, budget.currency)} remaining
           </p>
         </div>
 
@@ -204,32 +208,32 @@ export const OverviewTab: React.FC = () => {
             <span className="text-xs font-medium">Actual Committed</span>
             <CheckCircle2 className="w-4 h-4 text-brand-500" />
           </div>
-          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
-            ${actualSpent.toLocaleString()}
+          <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">
+            {formatCurrency(actualSpentCents, budget.currency)}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            {Math.round((actualSpent / totalBudget) * 100)}% of total budget
+            {Math.round((actualSpentCents / totalBudgetCents) * 100)}% of total budget
           </p>
         </div>
 
         {/* Confirmed Guests */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Attending Guests</span>
+            <span className="text-xs font-medium">Confirmed Attendees</span>
             <Users className="w-4 h-4 text-indigo-500" />
           </div>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
-            {attendingGuests} / {currentEvent.guestCount}
+            {attendingCount} / {currentEvent.guestCount}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            {guests.list.length} in guest directory
+            {guests.dietarySummary.totalInvited} total invited
           </p>
         </div>
 
         {/* Milestones */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-medium">Run-of-Show</span>
+            <span className="text-xs font-medium">Run-of-Show Cues</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
@@ -370,7 +374,7 @@ export const OverviewTab: React.FC = () => {
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-1 transition" />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Inspect category splits, log actual payments, and monitor contingencies.
+            Inspect minor-unit category splits, log actual payments, and monitor contingencies.
           </p>
         </button>
 

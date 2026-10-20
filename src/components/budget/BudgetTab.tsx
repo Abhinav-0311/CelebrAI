@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  DollarSign, 
   Plus, 
   Trash2, 
   AlertCircle, 
@@ -9,17 +8,25 @@ import {
   PieChart 
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
-import { BudgetAllocation, ExpenseItem } from '../../types/event';
+import { BudgetAllocation, formatCurrency, dollarsToCents } from '../../types/event';
 
 export const BudgetTab: React.FC = () => {
   const { currentEvent, addExpense, deleteExpense, toggleExpensePaid } = useEventStore();
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
 
-  const [newExpense, setNewExpense] = useState<Partial<ExpenseItem>>({
+  const [newExpenseDollars, setNewExpenseDollars] = useState<{
+    name: string;
+    category: BudgetAllocation['category'];
+    estimated: number;
+    actual: number;
+    vendor: string;
+    isPaid: boolean;
+    notes: string;
+  }>({
     name: '',
     category: 'catering',
-    estimatedCost: 1000,
-    actualCost: 1000,
+    estimated: 1000,
+    actual: 1000,
     vendor: '',
     isPaid: false,
     notes: '',
@@ -28,34 +35,34 @@ export const BudgetTab: React.FC = () => {
   if (!currentEvent) return null;
 
   const { budget } = currentEvent;
-  const totalBudget = budget.totalBudget;
-  const totalAllocated = budget.allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
-  const totalSpent = budget.allocations.reduce((sum, a) => sum + a.actualSpent, 0);
-  const remaining = totalBudget - totalSpent;
-  const isOverBudget = totalSpent > totalBudget;
+  const totalBudgetCents = budget.totalBudgetCents;
+  const totalAllocatedCents = budget.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
+  const totalSpentCents = budget.allocations.reduce((sum, a) => sum + a.actualSpentCents, 0);
+  const remainingCents = totalBudgetCents - totalSpentCents;
+  const isOverBudget = totalSpentCents > totalBudgetCents;
 
   const handleAddExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newExpense.name || !newExpense.category) return;
+    if (!newExpenseDollars.name || !newExpenseDollars.category) return;
 
-    const matchedAlloc = budget.allocations.find((a) => a.category === newExpense.category);
+    const matchedAlloc = budget.allocations.find((a) => a.category === newExpenseDollars.category);
 
     addExpense({
       allocationId: matchedAlloc ? matchedAlloc.id : 'alloc-custom',
-      name: newExpense.name,
-      category: newExpense.category as BudgetAllocation['category'],
-      estimatedCost: Number(newExpense.estimatedCost) || 0,
-      actualCost: Number(newExpense.actualCost) || 0,
-      vendor: newExpense.vendor || '',
-      isPaid: Boolean(newExpense.isPaid),
-      notes: newExpense.notes || '',
+      name: newExpenseDollars.name,
+      category: newExpenseDollars.category,
+      estimatedCents: dollarsToCents(Number(newExpenseDollars.estimated) || 0),
+      actualCents: dollarsToCents(Number(newExpenseDollars.actual) || 0),
+      vendor: newExpenseDollars.vendor || '',
+      isPaid: Boolean(newExpenseDollars.isPaid),
+      notes: newExpenseDollars.notes || '',
     });
 
-    setNewExpense({
+    setNewExpenseDollars({
       name: '',
       category: 'catering',
-      estimatedCost: 500,
-      actualCost: 500,
+      estimated: 500,
+      actual: 500,
       vendor: '',
       isPaid: false,
       notes: '',
@@ -71,7 +78,7 @@ export const BudgetTab: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                Financial Architecture
+                Financial Architecture (Cents Precision)
               </span>
               {isOverBudget && (
                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400 flex items-center gap-1">
@@ -83,7 +90,7 @@ export const BudgetTab: React.FC = () => {
               Event Budget & Expense Engine
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Deterministic allocation modeling and real-time expense commitment tracking
+              Deterministic allocation modeling with exact minor-unit reconciliation
             </p>
           </div>
 
@@ -101,26 +108,26 @@ export const BudgetTab: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <span className="text-[11px] text-slate-500">Total Budget Target</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-              ${totalBudget.toLocaleString()}
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+              {formatCurrency(totalBudgetCents, budget.currency)}
             </p>
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <span className="text-[11px] text-slate-500">Planned Allocation</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-              ${totalAllocated.toLocaleString()}
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+              {formatCurrency(totalAllocatedCents, budget.currency)}
             </p>
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <span className="text-[11px] text-slate-500">Committed / Paid</span>
-            <p className={`text-lg font-bold mt-0.5 ${isOverBudget ? 'text-rose-600' : 'text-slate-900 dark:text-slate-100'}`}>
-              ${totalSpent.toLocaleString()}
+            <p className={`text-lg font-bold mt-0.5 font-mono ${isOverBudget ? 'text-rose-600' : 'text-slate-900 dark:text-slate-100'}`}>
+              {formatCurrency(totalSpentCents, budget.currency)}
             </p>
           </div>
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <span className="text-[11px] text-slate-500">Available Headroom</span>
-            <p className={`text-lg font-bold mt-0.5 ${remaining >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              ${remaining.toLocaleString()}
+            <p className={`text-lg font-bold mt-0.5 font-mono ${remainingCents >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {formatCurrency(remainingCents, budget.currency)}
             </p>
           </div>
         </div>
@@ -131,16 +138,16 @@ export const BudgetTab: React.FC = () => {
             <span className="font-semibold flex items-center gap-1.5">
               <PieChart className="w-3.5 h-3.5" /> Budget Utilization
             </span>
-            <span>{Math.round((totalSpent / totalBudget) * 100)}% Spent</span>
+            <span>{Math.round((totalSpentCents / totalBudgetCents) * 100)}% Spent</span>
           </div>
           <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
             {budget.allocations.map((alloc) => {
-              const widthPct = (alloc.allocatedAmount / totalBudget) * 100;
+              const widthPct = (alloc.allocatedCents / totalBudgetCents) * 100;
               return (
                 <div
                   key={alloc.id}
                   style={{ width: `${widthPct}%` }}
-                  title={`${alloc.name}: $${alloc.allocatedAmount.toLocaleString()} (${alloc.percentage}%)`}
+                  title={`${alloc.name}: ${formatCurrency(alloc.allocatedCents, budget.currency)} (${alloc.percentage}%)`}
                   className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-300 relative group border-r border-white/20 last:border-0"
                 >
                   <div
@@ -172,8 +179,8 @@ export const BudgetTab: React.FC = () => {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {budget.allocations.map((alloc) => {
-            const spentPct = alloc.allocatedAmount > 0 ? Math.round((alloc.actualSpent / alloc.allocatedAmount) * 100) : 0;
-            const isCategoryOver = alloc.actualSpent > alloc.allocatedAmount;
+            const spentPct = alloc.allocatedCents > 0 ? Math.round((alloc.actualSpentCents / alloc.allocatedCents) * 100) : 0;
+            const isCategoryOver = alloc.actualSpentCents > alloc.allocatedCents;
 
             return (
               <div
@@ -192,14 +199,14 @@ export const BudgetTab: React.FC = () => {
                 <div className="flex items-baseline justify-between">
                   <div>
                     <span className="text-[11px] text-slate-500">Allocated</span>
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      ${alloc.allocatedAmount.toLocaleString()}
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono">
+                      {formatCurrency(alloc.allocatedCents, budget.currency)}
                     </p>
                   </div>
                   <div className="text-right">
                     <span className="text-[11px] text-slate-500">Committed</span>
-                    <p className={`text-sm font-bold ${isCategoryOver ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}`}>
-                      ${alloc.actualSpent.toLocaleString()}
+                    <p className={`text-sm font-bold font-mono ${isCategoryOver ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                      {formatCurrency(alloc.actualSpentCents, budget.currency)}
                     </p>
                   </div>
                 </div>
@@ -217,9 +224,9 @@ export const BudgetTab: React.FC = () => {
                   <div className="flex justify-between text-[10px] text-slate-400">
                     <span>{spentPct}% utilized</span>
                     <span>
-                      {alloc.allocatedAmount - alloc.actualSpent >= 0
-                        ? `$${(alloc.allocatedAmount - alloc.actualSpent).toLocaleString()} left`
-                        : `-$${Math.abs(alloc.allocatedAmount - alloc.actualSpent).toLocaleString()} over`}
+                      {alloc.allocatedCents - alloc.actualSpentCents >= 0
+                        ? `${formatCurrency(alloc.allocatedCents - alloc.actualSpentCents, budget.currency)} left`
+                        : `-${formatCurrency(Math.abs(alloc.allocatedCents - alloc.actualSpentCents), budget.currency)} over`}
                     </span>
                   </div>
                 </div>
@@ -237,14 +244,13 @@ export const BudgetTab: React.FC = () => {
               Line-Item Expenses & Commitments ({budget.expenses.length})
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Track vendor invoices, contracts, and actual payments
+              Track vendor invoices and settled transactions
             </p>
           </div>
         </div>
 
         {budget.expenses.length === 0 ? (
           <div className="text-center py-8 border border-dashed rounded-xl border-slate-200 dark:border-slate-800">
-            <DollarSign className="w-8 h-8 text-slate-400 mx-auto mb-2" />
             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No expenses logged yet</p>
             <p className="text-[11px] text-slate-400 mt-0.5">Click "Log Expense" above to add your first line item.</p>
           </div>
@@ -290,10 +296,10 @@ export const BudgetTab: React.FC = () => {
                       {item.vendor || '—'}
                     </td>
                     <td className="py-2.5 px-3 text-right text-slate-500 font-mono">
-                      ${item.estimatedCost.toLocaleString()}
+                      {formatCurrency(item.estimatedCents, budget.currency)}
                     </td>
                     <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-slate-100 font-mono">
-                      ${item.actualCost.toLocaleString()}
+                      {formatCurrency(item.actualCents, budget.currency)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <button
@@ -334,8 +340,8 @@ export const BudgetTab: React.FC = () => {
                   type="text"
                   required
                   placeholder="e.g. Acoustic Audio Equipment Rental"
-                  value={newExpense.name}
-                  onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
+                  value={newExpenseDollars.name}
+                  onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, name: e.target.value })}
                   className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 />
               </div>
@@ -346,8 +352,8 @@ export const BudgetTab: React.FC = () => {
                     Category *
                   </label>
                   <select
-                    value={newExpense.category}
-                    onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value as any })}
+                    value={newExpenseDollars.category}
+                    onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, category: e.target.value as any })}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   >
                     {budget.allocations.map((a) => (
@@ -365,8 +371,8 @@ export const BudgetTab: React.FC = () => {
                   <input
                     type="text"
                     placeholder="e.g. Sonic Sound Co"
-                    value={newExpense.vendor}
-                    onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
+                    value={newExpenseDollars.vendor}
+                    onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, vendor: e.target.value })}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   />
                 </div>
@@ -380,8 +386,8 @@ export const BudgetTab: React.FC = () => {
                   <input
                     type="number"
                     min="0"
-                    value={newExpense.estimatedCost}
-                    onChange={(e) => setNewExpense({ ...newExpense, estimatedCost: parseFloat(e.target.value) || 0 })}
+                    value={newExpenseDollars.estimated}
+                    onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, estimated: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   />
                 </div>
@@ -394,8 +400,8 @@ export const BudgetTab: React.FC = () => {
                     type="number"
                     min="0"
                     required
-                    value={newExpense.actualCost}
-                    onChange={(e) => setNewExpense({ ...newExpense, actualCost: parseFloat(e.target.value) || 0 })}
+                    value={newExpenseDollars.actual}
+                    onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, actual: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   />
                 </div>
@@ -405,8 +411,8 @@ export const BudgetTab: React.FC = () => {
                 <input
                   type="checkbox"
                   id="is-paid-chk"
-                  checked={newExpense.isPaid}
-                  onChange={(e) => setNewExpense({ ...newExpense, isPaid: e.target.checked })}
+                  checked={newExpenseDollars.isPaid}
+                  onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, isPaid: e.target.checked })}
                   className="rounded text-brand-600 focus:ring-brand-500"
                 />
                 <label htmlFor="is-paid-chk" className="text-xs text-slate-700 dark:text-slate-300">

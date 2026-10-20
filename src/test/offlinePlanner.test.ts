@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { generateDeterministicPlan } from '../services/offlinePlanner';
+import { generateDeterministicPlan, reconcileBudgetCents } from '../services/offlinePlanner';
 import { AIEventPlanResponseSchema, EventCreationInput } from '../types/schemas';
+import { dollarsToCents } from '../types/event';
 
-describe('Offline Deterministic Planner', () => {
+describe('Offline Deterministic Planner (Cents Precision)', () => {
   const sampleInput: EventCreationInput = {
     title: 'Emerald Garden Wedding',
     eventType: 'wedding',
@@ -10,12 +11,13 @@ describe('Offline Deterministic Planner', () => {
     totalBudget: 35000,
     currency: 'USD',
     eventDate: '2026-12-15',
+    timezone: 'America/Los_Angeles',
     location: 'Botanical Conservatory, Portland, OR',
     venueType: 'garden',
     vibeKeywords: ['Romantic', 'Botanical', 'Intimate'],
   };
 
-  it('generates a schema-compliant event plan for weddings', () => {
+  it('generates a schema-compliant event plan with integer minor currency units', () => {
     const plan = generateDeterministicPlan(sampleInput);
     const parsed = AIEventPlanResponseSchema.safeParse(plan);
 
@@ -28,17 +30,28 @@ describe('Offline Deterministic Planner', () => {
     expect(plan.creative.invitations.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('calculates mathematically sound budget allocations', () => {
+  it('reconciles budget allocations to the exact single cent (zero drift)', () => {
+    const targetCents = dollarsToCents(35000); // 3,500,000 cents
     const plan = generateDeterministicPlan(sampleInput);
-    const totalAllocated = plan.allocations.reduce((sum, a) => sum + a.allocatedAmount, 0);
+    const totalAllocatedCents = plan.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
 
-    // Sum of allocations should match totalBudget closely (within rounding margin)
-    expect(Math.abs(totalAllocated - sampleInput.totalBudget)).toBeLessThanOrEqual(10);
-    
-    // Catering should be the largest single allocation for weddings
-    const catering = plan.allocations.find((a) => a.category === 'catering');
-    expect(catering).toBeDefined();
-    expect(catering?.percentage).toBe(38);
+    // Exact mathematical equality down to the single cent
+    expect(totalAllocatedCents).toBe(targetCents);
+  });
+
+  it('reconcileBudgetCents uses largest-remainder method with odd budget numbers', () => {
+    // Test with an odd budget amount that does not divide cleanly by percentages
+    const oddBudgetCents = 3333333; // $33,333.33
+    const pcts = [
+      { category: 'catering', name: 'Catering', pct: 33 },
+      { category: 'venue', name: 'Venue', pct: 33 },
+      { category: 'decor', name: 'Decor', pct: 34 },
+    ];
+
+    const allocations = reconcileBudgetCents(oddBudgetCents, pcts);
+    const sumCents = allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
+
+    expect(sumCents).toBe(oddBudgetCents);
   });
 
   it('generates appropriate corporate gala milestones and theme', () => {
@@ -49,6 +62,7 @@ describe('Offline Deterministic Planner', () => {
       totalBudget: 75000,
       currency: 'USD',
       eventDate: '2026-11-20',
+      timezone: 'America/New_York',
       location: 'Metropolitan Convention Center',
       venueType: 'ballroom',
       vibeKeywords: ['Innovative', 'Prestigious'],
@@ -58,5 +72,8 @@ describe('Offline Deterministic Planner', () => {
     expect(plan.theme.dressCode).toContain('Black Tie');
     const keynoteMilestone = plan.milestones.find((m) => m.category === 'speech' || m.title.includes('Highlight'));
     expect(keynoteMilestone).toBeDefined();
+
+    const sumGalaCents = plan.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
+    expect(sumGalaCents).toBe(dollarsToCents(75000));
   });
 });

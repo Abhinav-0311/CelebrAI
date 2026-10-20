@@ -95,13 +95,13 @@ export const GuestsTab: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-              Hospitality & Catering Integration
+              Hospitality & Kitchen Intelligence
             </span>
             <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
-              Guest Directory & Dietary Intelligence
+              Guest Directory & Dietary Aggregations
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Track RSVP statuses, aggregate kitchen portions, and allocate table seating
+              Distinguishing confirmed dietary portions from pending estimates with plus-one accounting
             </p>
           </div>
 
@@ -117,32 +117,40 @@ export const GuestsTab: React.FC = () => {
 
         {/* Dietary & Kitchen Aggregates */}
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-            <UtensilsCrossed className="w-3.5 h-3.5" /> Kitchen Dietary Aggregations
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <UtensilsCrossed className="w-3.5 h-3.5" /> Confirmed Kitchen Portions (Attending Guests & Plus-Ones)
+            </h3>
+            {summary.potentialDietaryCount > 0 && (
+              <span className="text-[11px] text-amber-600 font-semibold">
+                +{summary.potentialDietaryCount} pending RSVP dietary portions
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
               <span className="text-[11px] text-slate-500">Vegetarian</span>
               <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-                {summary.vegetarianCount}
+                {summary.confirmedVegetarian}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
               <span className="text-[11px] text-slate-500">Vegan</span>
               <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-                {summary.veganCount}
+                {summary.confirmedVegan}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
               <span className="text-[11px] text-slate-500">Gluten-Free</span>
               <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-                {summary.glutenFreeCount}
+                {summary.confirmedGlutenFree}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
               <span className="text-[11px] text-slate-500">Halal</span>
               <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-                {summary.halalCount}
+                {summary.confirmedHalal}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-center">
@@ -150,11 +158,11 @@ export const GuestsTab: React.FC = () => {
                 <AlertTriangle className="w-3 h-3" /> Nut Allergy
               </span>
               <p className="text-lg font-bold text-rose-700 dark:text-rose-300 mt-0.5">
-                {summary.nutAllergyCount}
+                {summary.confirmedNutAllergy}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
-              <span className="text-[11px] text-slate-500">Seating Layout</span>
+              <span className="text-[11px] text-slate-500">Target Seating</span>
               <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                 {totalTables} Tables
               </p>
@@ -211,7 +219,7 @@ export const GuestsTab: React.FC = () => {
                   <th className="py-2.5 px-3">Guest Name</th>
                   <th className="py-2.5 px-3">RSVP Status</th>
                   <th className="py-2.5 px-3">Table</th>
-                  <th className="py-2.5 px-3">Plus-Ones</th>
+                  <th className="py-2.5 px-3">Party Size</th>
                   <th className="py-2.5 px-3">Dietary Requirements</th>
                   <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
@@ -249,8 +257,8 @@ export const GuestsTab: React.FC = () => {
                     <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300">
                       Table {g.tableNumber || 1}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
-                      +{g.plusOnes}
+                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 font-semibold">
+                      {1 + (g.plusOnes || 0)} {g.plusOnes > 0 ? `(+${g.plusOnes})` : ''}
                     </td>
                     <td className="py-2.5 px-3">
                       <div className="flex flex-wrap gap-1">
