@@ -1,6 +1,11 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { generateDeterministicPlan } from '../src/services/offlinePlanner';
-import { GeminiAPIRequestSchema, EventCreationSchema } from '../src/types/schemas';
+import { generateDeterministicPlan, reconcileBudgetCents } from '../src/services/offlinePlanner';
+import {
+  GeminiAPIRequestSchema,
+  EventCreationSchema,
+  AIEventPlanResponseSchema,
+  AIEventPlanResponse,
+} from '../src/types/schemas';
 import { dollarsToCents } from '../src/types/event';
 
 // Strict machine-readable response schema for gemini-3.8-flash structured output
@@ -133,31 +138,69 @@ const planResponseSchema = {
 };
 
 /**
- * Server-Side Domain Business Rule Validation
- * Reconciles financial totals and structural integrity.
+ * Server-Side Domain Business Rule Validation & Allocation Normalization
+ * Reconciles financial totals with zero-cent drift and ensures structural integrity.
  */
-function validateDomainBusinessRules(plan: any, totalBudgetCents: number): boolean {
-  if (!plan || !plan.allocations || !plan.milestones || !plan.theme) {
-    return false;
+function validateAndNormalizeDomainPlan(
+  planData: any,
+  targetBudgetCents: number
+): AIEventPlanResponse | null {
+  if (!planData) return null;
+
+  // 1. Structural Zod Validation
+  const schemaResult = AIEventPlanResponseSchema.safeParse(planData);
+  if (!schemaResult.success) {
+    console.warn('AI Output failed Zod schema validation:', schemaResult.error.issues);
+    return null;
   }
 
-  // 1. Exact Budget Reconciliation Check (Within 1% tolerance, auto-normalized)
-  const totalAllocated = plan.allocations.reduce((sum: number, a: any) => sum + (Number(a.allocatedCents) || 0), 0);
-  if (totalAllocated < totalBudgetCents * 0.95 || totalAllocated > totalBudgetCents * 1.05) {
-    return false;
-  }
+  const plan = schemaResult.data;
 
   // 2. Minimum structural elements check
-  if (plan.milestones.length < 3 || plan.allocations.length < 3) {
-    return false;
+  if (
+    !plan.allocations ||
+    plan.allocations.length < 3 ||
+    !plan.milestones ||
+    plan.milestones.length < 3 ||
+    !plan.theme?.colorPalette ||
+    plan.theme.colorPalette.length < 3
+  ) {
+    console.warn('AI Output failed minimum structural element counts');
+    return null;
   }
 
-  // 3. Color palette minimum
-  if (!plan.theme.colorPalette || plan.theme.colorPalette.length < 3) {
-    return false;
+  // 3. Exact Budget Normalization: Single-Cent Reconciliation
+  const totalRawAllocated = plan.allocations.reduce(
+    (sum, a) => sum + (Number(a.allocatedCents) || 0),
+    0
+  );
+
+  if (totalRawAllocated <= 0) {
+    console.warn('AI Output produced non-positive allocation sum:', totalRawAllocated);
+    return null;
   }
 
-  return true;
+  // Use largest-remainder reconciliation to guarantee sum(allocatedCents) === targetBudgetCents
+  const categoriesForReconcile = plan.allocations.map((a) => ({
+    category: a.category,
+    name: a.name,
+    pct: a.percentage > 0 ? a.percentage : (a.allocatedCents / totalRawAllocated) * 100,
+  }));
+
+  const reconciled = reconcileBudgetCents(targetBudgetCents, categoriesForReconcile);
+  const reconciledAllocations = plan.allocations.map((orig) => {
+    const match = reconciled.find((r) => r.category === orig.category);
+    return {
+      ...orig,
+      allocatedCents: match ? match.allocatedCents : orig.allocatedCents,
+      percentage: match ? match.percentage : orig.percentage,
+    };
+  });
+
+  return {
+    ...plan,
+    allocations: reconciledAllocations,
+  };
 }
 
 // Serverless route handler (Vercel Serverless Function)
@@ -192,6 +235,11 @@ export default async function handler(req: any, res: any) {
 
   const { action, eventData } = requestValidation.data;
 
+  // Strict check on supported actions
+  if (action !== 'generate_full_plan') {
+    return res.status(400).json({ error: `Unsupported action: ${action}` });
+  }
+
   // Validate eventData parameters
   const eventValidation = EventCreationSchema.safeParse(eventData);
   if (!eventValidation.success) {
@@ -209,29 +257,25 @@ export default async function handler(req: any, res: any) {
 
   // Transparent Offline Fallback: If no live key is configured
   if (!apiKey) {
-    if (action === 'generate_full_plan') {
-      const fallbackPlan = generateDeterministicPlan(validatedEvent);
-      return res.status(200).json({
-        success: true,
-        mode: 'offline_fallback',
-        message: 'Server has no GEMINI_API_KEY configured. Served high-fidelity deterministic plan.',
-        data: fallbackPlan,
-      });
-    }
+    const fallbackPlan = generateDeterministicPlan(validatedEvent);
     return res.status(200).json({
       success: true,
       mode: 'offline_fallback',
-      message: 'No live key configured. Fallback response provided.',
-      data: null,
+      message: 'Server has no GEMINI_API_KEY configured. Served high-fidelity deterministic plan.',
+      data: fallbackPlan,
     });
   }
 
-  // Live Google Gemini 3.8 Flash Call via @google/genai SDK
+  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with 15s execution timeout
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort();
+  }, 15000);
+
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    if (action === 'generate_full_plan') {
-      const prompt = `
+    const prompt = `
 You are the world's leading Celebration & Event Architect for CelebrAI.
 Generate a comprehensive, cohesive, end-to-end event plan for:
 Event Title: "${validatedEvent.title}"
@@ -246,54 +290,61 @@ Special Notes: "${validatedEvent.specialNotes || 'None'}"
 
 Calculate all financial allocations in integer cents matching the total budget of ${targetBudgetCents} cents.
 Output strictly according to the responseSchema provided.
-      `.trim();
+    `.trim();
 
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: planResponseSchema,
-        },
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      abortController.signal.addEventListener('abort', () => {
+        reject(new Error('Upstream Gemini request timed out after 15 seconds.'));
       });
+    });
 
-      const responseText = response.text;
-      if (!responseText) {
-        throw new Error('Empty response received from Gemini model.');
-      }
+    const geminiPromise = ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: planResponseSchema,
+      },
+    });
 
-      const parsedData = JSON.parse(responseText);
+    const response = await Promise.race([geminiPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
 
-      // Business Rule Validation
-      const isValid = validateDomainBusinessRules(parsedData, targetBudgetCents);
-      if (!isValid) {
-        console.warn('AI Output failed domain business validation. Falling back to deterministic plan.');
-        const fallbackPlan = generateDeterministicPlan(validatedEvent);
-        return res.status(200).json({
-          success: true,
-          mode: 'offline_fallback',
-          message: 'AI output failed domain business validation. Safe fallback plan served.',
-          data: fallbackPlan,
-        });
-      }
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error('Empty response received from Gemini model.');
+    }
 
+    const parsedData = JSON.parse(responseText);
+
+    // Business Rule Validation & Exact Single-Cent Rebalancing
+    const normalizedPlan = validateAndNormalizeDomainPlan(parsedData, targetBudgetCents);
+    if (!normalizedPlan) {
+      console.warn('AI Output failed domain business validation or schema. Falling back to deterministic plan.');
+      const fallbackPlan = generateDeterministicPlan(validatedEvent);
       return res.status(200).json({
         success: true,
-        mode: 'live_ai',
-        model: modelName,
-        data: parsedData,
+        mode: 'offline_fallback',
+        message: 'AI output failed domain business validation. Safe fallback plan served.',
+        data: fallbackPlan,
       });
     }
 
-    return res.status(400).json({ error: `Unsupported action: ${action}` });
+    return res.status(200).json({
+      success: true,
+      mode: 'live_ai',
+      model: modelName,
+      data: normalizedPlan,
+    });
   } catch (error: any) {
+    clearTimeout(timeoutId);
     console.error('Gemini Server Proxy Error:', error);
     // Graceful fallback to deterministic generator
     const fallbackPlan = generateDeterministicPlan(validatedEvent);
     return res.status(200).json({
       success: true,
       mode: 'offline_fallback',
-      message: 'Upstream AI unavailable. Served high-fidelity deterministic plan.',
+      message: `Upstream AI unavailable (${error?.message || 'error'}). Served high-fidelity deterministic plan.`,
       data: fallbackPlan,
     });
   }

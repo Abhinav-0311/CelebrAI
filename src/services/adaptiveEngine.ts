@@ -1,5 +1,4 @@
 import { CelebrAIEvent, AdaptiveRippleAlert, formatCurrency } from '../types/event';
-import { reconcileBudgetCents } from './offlinePlanner';
 
 /**
  * The Adaptive Event Intelligence Engine (Phase 0.2 Specification)
@@ -113,20 +112,29 @@ export function analyzeBudgetChange(
   const isDeficit = newTotalBudgetCents < totalActualSpentCents;
 
   const severity: 'low' | 'medium' | 'high' = isDeficit ? 'high' : Math.abs(deltaBudgetCents) / oldBudgetCents > 0.2 ? 'medium' : 'low';
-  const title = deltaBudgetCents > 0
+  const title = isDeficit
+    ? `Infeasible Budget: Below Committed Spending (${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)})`
+    : deltaBudgetCents > 0
     ? `Budget Expansion: +${formatCurrency(deltaBudgetCents, currentEvent.budget.currency)}`
     : `Budget Reduction: -${formatCurrency(Math.abs(deltaBudgetCents), currentEvent.budget.currency)}`;
 
   const impactSummary = isDeficit
-    ? `Critical Deficit: Proposed budget (${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)}) is less than already committed expenditures (${formatCurrency(totalActualSpentCents, currentEvent.budget.currency)}) by ${formatCurrency(totalActualSpentCents - newTotalBudgetCents, currentEvent.budget.currency)}.`
-    : `Proportionally scaling category allocations to match the updated ${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)} budget envelope while protecting all committed expenses.`;
+    ? `Critical Deficit: Proposed budget (${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)}) is less than already committed expenditures (${formatCurrency(totalActualSpentCents, currentEvent.budget.currency)}) by ${formatCurrency(totalActualSpentCents - newTotalBudgetCents, currentEvent.budget.currency)}. This budget change cannot be applied without reducing or canceling committed expenses.`
+    : `Proportionally rebalancing discretionary category allocations to match the updated ${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)} budget envelope while protecting all committed expense floors to the exact cent.`;
 
-  const recommendedActions: AdaptiveRippleAlert['recommendedActions'] = [
-    {
-      actionType: 'update_budget',
-      description: `Rebalance category allocations to total exactly ${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)} without violating committed expense minimums`,
-    },
-  ];
+  const recommendedActions: AdaptiveRippleAlert['recommendedActions'] = isDeficit
+    ? [
+        {
+          actionType: 'update_budget',
+          description: `Increase proposed budget to at least ${formatCurrency(totalActualSpentCents, currentEvent.budget.currency)} or reduce committed expenses before applying`,
+        },
+      ]
+    : [
+        {
+          actionType: 'update_budget',
+          description: `Rebalance category allocations to total exactly ${formatCurrency(newTotalBudgetCents, currentEvent.budget.currency)} without violating committed expense minimums`,
+        },
+      ];
 
   return {
     id: `ripple-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -196,43 +204,81 @@ export function applyRipplePatch(
         updated.budget.allocations[cateringIdx].allocatedCents -= safeReclaim;
         if (contingencyIdx !== -1) {
           updated.budget.allocations[contingencyIdx].allocatedCents += safeReclaim;
+        } else {
+          updated.budget.totalBudgetCents -= safeReclaim;
         }
       }
+
+      // Re-calculate percentages across all allocations
+      const currentTotal = updated.budget.totalBudgetCents;
+      updated.budget.allocations.forEach((a) => {
+        a.percentage = Math.round((a.allocatedCents / currentTotal) * 1000) / 10;
+      });
     }
 
     // Update guest dietary summary total
     updated.guests.dietarySummary.totalInvited = newCount;
   } else if (alert.triggerType === 'budget_change') {
     const newTotalCents = Number(alert.newValue);
+    const totalActualSpentCents = updated.budget.allocations.reduce((sum, a) => sum + a.actualSpentCents, 0);
+
+    // Invariant Enforcement: Reject infeasible budget reduction
+    // If proposed budget cannot cover already committed expenditures, do not mutate state.
+    if (newTotalCents < totalActualSpentCents || newTotalCents <= 0) {
+      console.warn(
+        `[CelebrAI Adaptive Engine] Rejected budget change: proposed budget (${newTotalCents} cents) is less than committed expenses (${totalActualSpentCents} cents).`
+      );
+      return event;
+    }
+
     updated.budget.totalBudgetCents = newTotalCents;
-
-    // Reconcile allocations while protecting actual spent commitments
     const currentAllocations = updated.budget.allocations;
-    const percentages = currentAllocations.map((a) => ({
-      category: a.category,
-      name: a.name,
-      pct: a.percentage,
-    }));
 
-    const reconciled = reconcileBudgetCents(newTotalCents, percentages);
+    // Discretionary pool available above committed expense floors
+    const discretionaryPoolCents = newTotalCents - totalActualSpentCents;
 
-    // Ensure no category drops below its actual committed expenditure
-    updated.budget.allocations = currentAllocations.map((orig) => {
-      const match = reconciled.find((r) => r.category === orig.category);
-      const targetCents = match ? match.allocatedCents : orig.allocatedCents;
+    // Calculate distribution weights based on target category percentages
+    const totalWeight = currentAllocations.reduce(
+      (sum, a) => sum + (a.percentage > 0 ? a.percentage : 1),
+      0
+    );
+
+    // Largest-remainder distribution for exact single-cent reconciliation
+    let distributedDiscretionaryCents = 0;
+    const allocationsWithDiscretionary = currentAllocations.map((a) => {
+      const weight = a.percentage > 0 ? a.percentage : 1;
+      const rawShare = discretionaryPoolCents > 0 ? (weight / totalWeight) * discretionaryPoolCents : 0;
+      const integerPart = Math.floor(rawShare);
+      const remainder = rawShare - integerPart;
+      distributedDiscretionaryCents += integerPart;
       return {
-        ...orig,
-        allocatedCents: Math.max(orig.actualSpentCents, targetCents),
+        id: a.id,
+        category: a.category,
+        actualSpentCents: a.actualSpentCents,
+        discretionaryCents: integerPart,
+        remainder,
       };
     });
 
-    // Final sum adjustment: if floors created a discrepancy, balance in contingency
-    const sumCents = updated.budget.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
-    const diff = newTotalCents - sumCents;
-    const contingency = updated.budget.allocations.find((a) => a.category === 'contingency');
-    if (contingency && diff !== 0) {
-      contingency.allocatedCents = Math.max(contingency.actualSpentCents, contingency.allocatedCents + diff);
+    // Distribute remainder cents to items with highest remainder
+    const leftoverCents = discretionaryPoolCents - distributedDiscretionaryCents;
+    allocationsWithDiscretionary.sort((a, b) => b.remainder - a.remainder);
+    for (let i = 0; i < leftoverCents && i < allocationsWithDiscretionary.length; i++) {
+      allocationsWithDiscretionary[i].discretionaryCents += 1;
     }
+
+    // Assign final reconciled allocations: allocatedCents = actualSpentCents + discretionaryCents
+    updated.budget.allocations = currentAllocations.map((orig) => {
+      const item = allocationsWithDiscretionary.find((a) => a.id === orig.id);
+      const discretionary = item ? item.discretionaryCents : 0;
+      const allocatedCents = orig.actualSpentCents + discretionary;
+      const percentage = Math.round((allocatedCents / newTotalCents) * 1000) / 10;
+      return {
+        ...orig,
+        allocatedCents,
+        percentage,
+      };
+    });
   }
 
   // Mark alert as applied

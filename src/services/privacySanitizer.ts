@@ -1,13 +1,18 @@
 import { EventCreationInput } from '../types/schemas';
 
 /**
- * Client-Side PII Redaction & Metadata Anonymizer
- * Filters out obvious personal identifiers (emails, phone numbers, individual names)
- * from free-text notes before dispatching requests to remote AI endpoints.
+ * Client-Side PII Redaction & Data Boundary Anonymizer
  * 
- * Note: While this provides defensive client-side redaction, the primary privacy
- * guarantee is architectural: full guest directories, emails, and seating records
- * are maintained strictly in local browser storage and never included in AI prompts.
+ * Data Boundary Isolation:
+ * - Sent to AI endpoint (/api/gemini): Event title, eventType, guestCount, totalBudget, currency,
+ *   eventDate, timezone, location, venueType, vibeKeywords, and regex-sanitized specialNotes.
+ * - Kept strictly local (never transmitted to AI): Guest directories (names, personal emails, phone numbers,
+ *   RSVP responses, dietary restrictions, plus-ones, table assignments), individual expense
+ *   vendor contacts, invoice records, and day-of operational logs.
+ * 
+ * Defense-in-depth:
+ * Free-text notes undergo regex pattern redaction for standard email addresses and telephone numbers.
+ * Users are advised not to enter confidential identity credentials into free-text notes.
  */
 export function sanitizeEventPayloadForAI(input: EventCreationInput): Record<string, any> {
   let cleanedNotes = input.specialNotes || '';

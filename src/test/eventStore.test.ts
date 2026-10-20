@@ -87,4 +87,37 @@ describe('Event Store (Business Logic & State Invariants)', () => {
     expect(useEventStore.getState().currentEvent?.title).toBe('Aurora Horizons — 10th Anniversary & Honors Gala');
     expect(useEventStore.getState().currentEvent?.budget.totalBudgetCents).toBe(4500000);
   });
+
+  it('updates milestone status and toggles day-of live mode', () => {
+    const store = useEventStore.getState();
+    const firstMilestone = store.currentEvent?.timeline.milestones[0];
+    expect(firstMilestone).toBeDefined();
+    const initialStatus = firstMilestone!.status;
+
+    store.toggleMilestoneStatus(firstMilestone!.id);
+    const updatedMilestone = useEventStore.getState().currentEvent?.timeline.milestones[0];
+    expect(updatedMilestone?.status).not.toBe(initialStatus);
+
+    expect(useEventStore.getState().currentEvent?.timeline.isDayOfLiveActive).toBe(false);
+    store.toggleDayOfLive();
+    expect(useEventStore.getState().currentEvent?.timeline.isDayOfLiveActive).toBe(true);
+    store.toggleDayOfLive();
+    expect(useEventStore.getState().currentEvent?.timeline.isDayOfLiveActive).toBe(false);
+  });
+
+  it('triggers adaptive analysis and applies ripple patch through the store', () => {
+    const store = useEventStore.getState();
+    // Trigger guest count adjustment
+    store.updateGuestCount(180);
+
+    const alert = useEventStore.getState().activeRippleAlert;
+    expect(alert).not.toBeNull();
+    expect(alert?.triggerType).toBe('guest_count_change');
+
+    if (alert) {
+      store.applyRipple(alert);
+      expect(useEventStore.getState().currentEvent?.guestCount).toBe(180);
+      expect(useEventStore.getState().activeRippleAlert).toBeNull();
+    }
+  });
 });

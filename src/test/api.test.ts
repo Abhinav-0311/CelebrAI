@@ -58,7 +58,47 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     expect(res.bodyData.error).toContain('Invalid request payload schema');
   });
 
-  it('delivers high-fidelity offline fallback plan when GEMINI_API_KEY is unset', async () => {
+  it('rejects unsupported actions with 400 Bad Request', async () => {
+    const { req, res } = createMockReqRes('POST', {
+      action: 'adaptive_ripple_recs',
+      eventData: {
+        title: 'Test',
+        eventType: 'birthday',
+        guestCount: 20,
+        totalBudget: 1000,
+        currency: 'USD',
+        eventDate: '2026-10-25',
+        location: 'NYC',
+        venueType: 'indoor',
+      },
+    });
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.bodyData.error).toContain('Unsupported action');
+  });
+
+  it('rejects invalid eventData parameters with 400 Bad Request', async () => {
+    const { req, res } = createMockReqRes('POST', {
+      action: 'generate_full_plan',
+      eventData: {
+        title: 'T', // Too short (< 2)
+        eventType: 'birthday',
+        guestCount: 1, // Below minimum 2
+        totalBudget: 50, // Below minimum $100
+        currency: 'USD',
+        eventDate: 'invalid-date',
+        location: '',
+        venueType: 'indoor',
+      },
+    });
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.bodyData.error).toContain('Invalid eventData parameters');
+  });
+
+  it('delivers high-fidelity offline fallback plan when GEMINI_API_KEY is unset with exact budget reconciliation', async () => {
     // Ensure no key is set for this test
     const originalKey = process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_KEY;
@@ -87,6 +127,10 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     expect(res.bodyData.mode).toBe('offline_fallback');
     expect(res.bodyData.data.theme.conceptTitle).toBeDefined();
     expect(res.bodyData.data.allocations.length).toBeGreaterThan(0);
+
+    // Single-cent exact reconciliation check: 20000 * 100 = 2,000,000 cents
+    const sumCents = res.bodyData.data.allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
+    expect(sumCents).toBe(2000000);
 
     // Restore key
     if (originalKey) process.env.GEMINI_API_KEY = originalKey;

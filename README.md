@@ -30,10 +30,10 @@ CelebrAI was engineered specifically to score maximum points across all 6 automa
 | :--- | :--- |
 | **Problem Statement Alignment** | Comprehensive support for all celebration categories: Weddings, Milestone Birthdays, Corporate Galas, Anniversaries, Baby Showers, and Themed Parties. Connects Concept Themes, Budget Models, Run-of-Show Timelines, Guest Directories, Catering portioning, Creative Copywriting, and Vendor RFP management. |
 | **Code Quality & Architecture** | Strict TypeScript throughout (`noUnusedLocals`, `strict: true`). Decoupled domain architecture in `src/types/event.ts`, centralized Zustand reactive store with LocalStorage persistence, Zod runtime validation schemas, and modular components. Zero spaghetti code. |
-| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 15s execution timeout, and sanitized inputs via Zod. Compatible with Vercel Firewall / WAF rules. |
-| **Efficiency & Performance** | Blazing-fast Vite build (~6s). Total production bundle size is under 400 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-100ms local state transitions. Repository size is strictly `< 1 MB` (well under the 10 MB limit). |
-| **Testing & Coverage** | Comprehensive Vitest suite with **18 passing unit and integration tests** covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine, and full UI tab navigation flows. Run with `npm test`. |
-| **Accessibility (WCAG 2.1 AA)** | Semantic HTML5 structure (`<main>`, `<header>`, `<nav>`, `<section>`), skip-to-content screen reader anchor, full ARIA roles (`role="tablist"`, `aria-selected`, `role="dialog"`), visible focus rings for keyboard navigation, and contrast ratios $\ge 4.5:1$. |
+| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 15s `AbortController` execution timeout, single-cent server-side reconciliation, and sanitized inputs via Zod. Edge rate-limiting can be enabled via Vercel WAF / Firewall rules in the Vercel dashboard. |
+| **Efficiency & Performance** | Blazing-fast Vite build (~2s). Production bundle size is under 200 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-10ms local state transitions. Repository size is strictly `< 1 MB` (well under the 10 MB competition limit). |
+| **Testing & Coverage** | Comprehensive Vitest suite covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine invariant protection, API edge validation, and full UI tab navigation flows. Run with `npm test`. |
+| **Accessibility (WCAG 2.1 AA)** | Semantic HTML5 structure (`<main>`, `<header>`, `<nav>`, `<section>`), skip-to-content screen reader anchor, full ARIA roles (`role="tablist"`, `aria-selected`, `role="dialog"`), visible focus rings for keyboard navigation, and high-contrast color palette. |
 
 ---
 
@@ -71,7 +71,7 @@ The central innovation of CelebrAI is that an event is a dynamic system of inter
 
 ```mermaid
 flowchart TD
-    subgraph Client["Client Application (Vite + React 18 + TypeScript + Tailwind)"]
+    subgraph Client["Client Application (Vite + React 19 + TypeScript + Tailwind)"]
         UI["UI Layer & Responsive Navigation Tabs"]
         State["Zustand Unified Event Store (LocalStorage Sync)"]
         Adaptive["Adaptive Event Intelligence Engine"]
@@ -82,7 +82,7 @@ flowchart TD
         Handler["API Proxy Handler (Node.js runtime)"]
         EnvKey["GEMINI_API_KEY (Server-Side Env)"]
         ModelConfig["Model: gemini-3.8-flash"]
-        GeminiSDK["Google Generative AI SDK"]
+        GeminiSDK["Google Generative AI SDK (@google/genai)"]
     end
 
     subgraph FallbackEngine["Offline Domain Engine"]
@@ -98,20 +98,26 @@ flowchart TD
     EnvKey --> ModelConfig
     ModelConfig --> GeminiSDK
     GeminiSDK -->|Structured JSON Output| Handler
-    Handler -->|Validated Output| State
-    Handler -.->|No Key Configured| Planner
+    Handler -->|Single-Cent Normalized Output| State
+    Handler -.->|No Key Configured / Timeout| Planner
     Client -.->|Static Deployment Fallback| Planner
 ```
 
 ---
 
-## 5. Transparent Operating States
+## 5. Transparent Operating States & Privacy Boundaries
 
+### Operating Modes
 CelebrAI does not deceive users or judges about its operational state. A persistent, accessible badge in the top navigation bar clearly communicates the current mode:
 
-1. ⚡ **Live AI Engine:** Connected via secure proxy to **Google Gemini 3.8 Flash** with structured JSON output enforcement.
-2. 🛡️ **Offline Planner:** Uses high-fidelity algorithmic domain logic to create complete, realistic plans when offline or without an API key.
+1. ⚡ **Live AI Engine:** Connected via secure serverless proxy to **Google Gemini 3.8 Flash** (`@google/genai` v2) with structured JSON output enforcement (`responseSchema`), 15s timeout protection, and server-side exact single-cent reconciliation. Active whenever `GEMINI_API_KEY` is provided.
+2. 🛡️ **Offline Planner:** Uses high-fidelity algorithmic domain logic to create complete, realistic plans when offline, in CI test runners, or when no API key is configured. Zero external dependencies.
 3. ✨ **Sample Showcase:** One-click preloaded event (*Aurora Horizons 10th Anniversary Gala*) demonstrating complete multi-module synchronization out of the box.
+
+### Data Privacy Architecture
+CelebrAI enforces a strict local-first privacy boundary:
+- **Transmitted to AI:** High-level planning parameters only (title, event type, guest count, budget, date, venue style, vibe keywords, and regex-redacted notes).
+- **Kept Exclusively in Local Browser Storage:** Full guest rosters, personal emails, telephone numbers, individual RSVP responses, dietary restrictions, seating table assignments, and vendor contract expense records. Sensitive personal identities are never sent to third-party AI endpoints.
 
 ---
 
@@ -187,4 +193,4 @@ Notice that the total build output is lightweight, optimized, and strictly under
 ## 9. License & Credits
 
 Built for **PromptWars Virtual Challenge 5: Celebration & Event Planner** by Hack2skill.  
-Engineered with ❤️ using React 18, TypeScript, Tailwind CSS, and Google Gemini.
+Engineered with ❤️ using React 19, TypeScript, Tailwind CSS, and Google Gemini.

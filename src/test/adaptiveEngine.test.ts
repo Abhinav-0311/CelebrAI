@@ -70,4 +70,61 @@ describe('Adaptive Event Intelligence Engine (Invariant Protection)', () => {
       expect(newCatering).toBeGreaterThan(oldCatering!);
     }
   });
+
+  it('rejects infeasible budget changes when proposed budget is below committed spending without mutating state', () => {
+    const totalSpentCents = sampleEventData.budget.allocations.reduce((s, a) => s + a.actualSpentCents, 0);
+    const lowBudgetCents = totalSpentCents - 200000; // $2,000 below committed spending
+
+    const alert = analyzeBudgetChange(sampleEventData, lowBudgetCents);
+    expect(alert).not.toBeNull();
+    expect(alert?.severity).toBe('high');
+
+    const result = applyRipplePatch(sampleEventData, alert!);
+    // State must be completely unmodified
+    expect(result.budget.totalBudgetCents).toBe(sampleEventData.budget.totalBudgetCents);
+    expect(result.appliedRipplesCount).toBe(sampleEventData.appliedRipplesCount);
+    expect(result.budget.allocations).toEqual(sampleEventData.budget.allocations);
+  });
+
+  it('distributes discretionary funds proportionally with zero-cent drift when budget is barely above committed expenditures', () => {
+    const totalSpentCents = sampleEventData.budget.allocations.reduce((s, a) => s + a.actualSpentCents, 0);
+    const targetBudgetCents = totalSpentCents + 13749; // $137.49 discretionary pool
+
+    const alert = analyzeBudgetChange(sampleEventData, targetBudgetCents);
+    expect(alert).not.toBeNull();
+
+    const patched = applyRipplePatch(sampleEventData, alert!);
+    expect(patched.budget.totalBudgetCents).toBe(targetBudgetCents);
+
+    // Sum of allocations must match targetBudgetCents to the exact single cent
+    const sumAllocated = patched.budget.allocations.reduce((s, a) => s + a.allocatedCents, 0);
+    expect(sumAllocated).toBe(targetBudgetCents);
+
+    // Invariant: every category >= actualSpentCents
+    patched.budget.allocations.forEach((alloc) => {
+      expect(alloc.allocatedCents).toBeGreaterThanOrEqual(alloc.actualSpentCents);
+    });
+  });
+
+  it('reconciles allocations cleanly across categories even when contingency is fully depleted', () => {
+    const depletedEvent = JSON.parse(JSON.stringify(sampleEventData));
+    const contingency = depletedEvent.budget.allocations.find((a: any) => a.category === 'contingency');
+    if (contingency) {
+      contingency.actualSpentCents = contingency.allocatedCents; // 0 discretionary contingency
+    }
+
+    const totalSpentCents = depletedEvent.budget.allocations.reduce((s: number, a: any) => s + a.actualSpentCents, 0);
+    const targetBudgetCents = totalSpentCents + 80000; // $800 discretionary pool (differs from old total of 4,500,000)
+
+    const alert = analyzeBudgetChange(depletedEvent, targetBudgetCents);
+    expect(alert).not.toBeNull();
+
+    const patched = applyRipplePatch(depletedEvent, alert!);
+    const sumAllocated = patched.budget.allocations.reduce((s: number, a: any) => s + a.allocatedCents, 0);
+    expect(sumAllocated).toBe(targetBudgetCents);
+
+    patched.budget.allocations.forEach((alloc: any) => {
+      expect(alloc.allocatedCents).toBeGreaterThanOrEqual(alloc.actualSpentCents);
+    });
+  });
 });
