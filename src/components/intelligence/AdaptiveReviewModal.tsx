@@ -12,16 +12,29 @@ export const AdaptiveReviewModal: React.FC = () => {
     dismissRipple,
   } = useEventStore();
 
+  const [rejectionMessage, setRejectionMessage] = React.useState<string | null>(null);
+
   if (!isAdaptiveModalOpen || !activeRippleAlert || !currentEvent) return null;
 
   const isGuestChange = activeRippleAlert.triggerType === 'guest_count_change';
   const isBudgetChange = activeRippleAlert.triggerType === 'budget_change';
 
+  const totalSpentCents = currentEvent.budget.allocations.reduce((s, a) => s + a.actualSpentCents, 0);
+  const isInfeasibleBudget = isBudgetChange && Number(activeRippleAlert.newValue) < totalSpentCents;
+
   const handleApply = () => {
-    applyRipple(activeRippleAlert);
+    const result = applyRipple(activeRippleAlert);
+    if (result && !result.success) {
+      setRejectionMessage(
+        result.reason || 'This proposed modification cannot be applied without violating committed contracts.'
+      );
+    } else {
+      setRejectionMessage(null);
+    }
   };
 
   const handleDismiss = () => {
+    setRejectionMessage(null);
     dismissRipple(activeRippleAlert.id);
   };
 
@@ -95,6 +108,33 @@ export const AdaptiveReviewModal: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* Rejection Alert Banner */}
+        {rejectionMessage && (
+          <div
+            className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2.5 text-rose-700 dark:text-rose-300 text-xs animate-shake"
+            role="alert"
+          >
+            <ShieldAlert className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Modification Rejected by Safety Invariant</p>
+              <p className="mt-0.5">{rejectionMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Constraint Warning if Infeasible */}
+        {isInfeasibleBudget && !rejectionMessage && (
+          <div
+            className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start gap-2 text-amber-800 dark:text-amber-300 text-xs"
+            role="status"
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+            <p>
+              <strong>Constraint Warning:</strong> The proposed budget ({formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency)}) is lower than existing committed expenditures ({formatCurrency(totalSpentCents, currentEvent.budget.currency)}).
+            </p>
+          </div>
+        )}
 
         {/* Impact Summary */}
         <div className="space-y-1">

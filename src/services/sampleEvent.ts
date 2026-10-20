@@ -69,7 +69,7 @@ export const sampleEventData: CelebrAIEvent = {
       { id: 'g-10', name: 'Amir Patel', email: 'amir.p@horizonhealth.com', rsvpStatus: 'attending', plusOnes: 0, dietary: ['halal'], tableNumber: 3, isVip: false },
     ],
     dietarySummary: {
-      totalInvited: 15,
+      totalInvited: 150,
       confirmedAttending: 13,
       confirmedVegan: 1,
       confirmedVegetarian: 4,

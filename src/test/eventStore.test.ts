@@ -34,9 +34,8 @@ describe('Event Store (Business Logic & State Invariants)', () => {
     expect(updated?.budget.expenses.some((e) => e.name === 'Extra Cleaning Deposit')).toBe(true);
   });
 
-  it('adds a guest with plus-ones and updates confirmed vs total invited dietary metrics', () => {
+  it('adds a guest with plus-ones and updates confirmed vs total invited dietary metrics consistently', () => {
     const store = useEventStore.getState();
-    const initialInvited = store.currentEvent?.guests.dietarySummary.totalInvited || 0;
     const initialVegan = store.currentEvent?.guests.dietarySummary.confirmedVegan || 0;
 
     store.addGuest({
@@ -49,8 +48,9 @@ describe('Event Store (Business Logic & State Invariants)', () => {
     });
 
     const updated = useEventStore.getState().currentEvent;
-    // Total invited should increase by 1 + 2 = 3
-    expect(updated?.guests.dietarySummary.totalInvited).toBe(initialInvited + 3);
+    // Total invited is maintained consistent with event guestCount (150)
+    expect(updated?.guests.dietarySummary.totalInvited).toBe(150);
+    expect(updated?.guestCount).toBe(150);
     // Vegan count should increase by 3
     expect(updated?.guests.dietarySummary.confirmedVegan).toBe(initialVegan + 3);
   });
@@ -115,9 +115,29 @@ describe('Event Store (Business Logic & State Invariants)', () => {
     expect(alert?.triggerType).toBe('guest_count_change');
 
     if (alert) {
-      store.applyRipple(alert);
+      const res = store.applyRipple(alert);
+      expect(res.success).toBe(true);
       expect(useEventStore.getState().currentEvent?.guestCount).toBe(180);
       expect(useEventStore.getState().activeRippleAlert).toBeNull();
+    }
+  });
+
+  it('rejects infeasible budget reduction through applyRipple without closing modal or applying change', () => {
+    const store = useEventStore.getState();
+    const totalSpent = store.currentEvent?.budget.allocations.reduce((s, a) => s + a.actualSpentCents, 0) || 0;
+    
+    // Attempt reduction below committed spending
+    store.updateTotalBudgetCents(totalSpent - 500000);
+    const alert = useEventStore.getState().activeRippleAlert;
+    expect(alert).not.toBeNull();
+    expect(alert?.severity).toBe('high');
+
+    if (alert) {
+      const res = store.applyRipple(alert);
+      expect(res.success).toBe(false);
+      expect(res.reason).toContain('Budget modification rejected');
+      // Ensure currentEvent was NOT mutated
+      expect(useEventStore.getState().currentEvent?.budget.totalBudgetCents).toBe(4500000);
     }
   });
 });

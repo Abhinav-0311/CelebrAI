@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "node scripts/run_e2e.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
@@ -36,6 +37,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.0",
     "jsdom": "^26.0.0",
+    "playwright": "^1.64.1",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.7.2",

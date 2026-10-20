@@ -135,4 +135,34 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     // Restore key
     if (originalKey) process.env.GEMINI_API_KEY = originalKey;
   });
+
+  it('guarantees unique categories in output allocations and strict single-cent sum matching', async () => {
+    const validPayload = {
+      action: 'generate_full_plan',
+      eventData: {
+        title: 'Emerald Gala',
+        eventType: 'corporate_gala',
+        guestCount: 120,
+        totalBudget: 45000,
+        currency: 'USD',
+        eventDate: '2026-11-20',
+        location: 'Downtown Center',
+        venueType: 'ballroom',
+      },
+    };
+
+    const { req, res } = createMockReqRes('POST', validPayload);
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(200);
+    const allocations = res.bodyData.data.allocations;
+    const categories = allocations.map((a: any) => a.category);
+    const uniqueCategories = new Set(categories);
+    // Every category must be unique
+    expect(uniqueCategories.size).toBe(categories.length);
+
+    // Sum matches 45,000 * 100 = 4,500,000 cents
+    const total = allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
+    expect(total).toBe(4500000);
+  });
 });

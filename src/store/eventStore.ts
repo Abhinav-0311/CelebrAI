@@ -49,7 +49,7 @@ interface EventStoreState {
   createEvent: (input: EventCreationInput) => Promise<void>;
   updateGuestCount: (newCount: number) => void;
   updateTotalBudgetCents: (newBudgetCents: number) => void;
-  applyRipple: (alert: AdaptiveRippleAlert) => void;
+  applyRipple: (alert: AdaptiveRippleAlert) => { success: boolean; reason?: string };
   dismissRipple: (alertId: string) => void;
 
   // Budget Actions (Minor Units: Cents)
@@ -79,10 +79,11 @@ interface EventStoreState {
 }
 
 /**
- * Computes dietary summaries distinguishing confirmed vs potential requirements.
+ * Computes dietary summaries distinguishing confirmed vs potential requirements,
+ * while maintaining strict consistency with overall event guest count.
  */
-function computeDietarySummary(list: Guest[]): DietarySummary {
-  let totalInvited = 0;
+function computeDietarySummary(list: Guest[], totalEventGuestCount: number = 0): DietarySummary {
+  let listHeadcount = 0;
   let confirmedAttending = 0;
   let confirmedVegan = 0;
   let confirmedVegetarian = 0;
@@ -94,7 +95,7 @@ function computeDietarySummary(list: Guest[]): DietarySummary {
 
   list.forEach((g) => {
     const headCount = 1 + (g.plusOnes || 0);
-    totalInvited += headCount;
+    listHeadcount += headCount;
 
     if (g.rsvpStatus === 'attending') {
       confirmedAttending += headCount;
@@ -112,6 +113,8 @@ function computeDietarySummary(list: Guest[]): DietarySummary {
       }
     }
   });
+
+  const totalInvited = Math.max(totalEventGuestCount, listHeadcount);
 
   return {
     totalInvited,
@@ -263,14 +266,28 @@ export const useEventStore = create<EventStoreState>()(
 
       applyRipple: (alert: AdaptiveRippleAlert) => {
         const { currentEvent } = get();
-        if (!currentEvent) return;
+        if (!currentEvent) return { success: false, reason: 'No active event' };
 
         const updatedEvent = applyRipplePatch(currentEvent, alert);
+
+        // If the adaptive engine rejected the modification (e.g. Budget below committed expenses)
+        if (
+          updatedEvent === currentEvent ||
+          updatedEvent.appliedRipplesCount === currentEvent.appliedRipplesCount
+        ) {
+          return {
+            success: false,
+            reason: 'Budget modification rejected: Proposed budget is less than already committed expenditures.',
+          };
+        }
+
         set({
           currentEvent: updatedEvent,
           isAdaptiveModalOpen: false,
           activeRippleAlert: null,
         });
+
+        return { success: true };
       },
 
       dismissRipple: (alertId: string) => {
@@ -406,11 +423,13 @@ export const useEventStore = create<EventStoreState>()(
         };
 
         const updatedList = [...currentEvent.guests.list, newGuest];
-        const updatedSummary = computeDietarySummary(updatedList);
+        const updatedSummary = computeDietarySummary(updatedList, currentEvent.guestCount);
+        const updatedGuestCount = Math.max(currentEvent.guestCount, updatedSummary.totalInvited);
 
         set({
           currentEvent: {
             ...currentEvent,
+            guestCount: updatedGuestCount,
             guests: {
               ...currentEvent.guests,
               list: updatedList,
@@ -426,11 +445,13 @@ export const useEventStore = create<EventStoreState>()(
         if (!currentEvent) return;
 
         const updatedList = currentEvent.guests.list.map((g) => (g.id === guest.id ? guest : g));
-        const updatedSummary = computeDietarySummary(updatedList);
+        const updatedSummary = computeDietarySummary(updatedList, currentEvent.guestCount);
+        const updatedGuestCount = Math.max(currentEvent.guestCount, updatedSummary.totalInvited);
 
         set({
           currentEvent: {
             ...currentEvent,
+            guestCount: updatedGuestCount,
             guests: {
               ...currentEvent.guests,
               list: updatedList,
@@ -446,7 +467,7 @@ export const useEventStore = create<EventStoreState>()(
         if (!currentEvent) return;
 
         const updatedList = currentEvent.guests.list.filter((g) => g.id !== id);
-        const updatedSummary = computeDietarySummary(updatedList);
+        const updatedSummary = computeDietarySummary(updatedList, currentEvent.guestCount);
 
         set({
           currentEvent: {

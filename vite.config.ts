@@ -11,7 +11,7 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use('/api/gemini', async (req, res) => {
           try {
-            const { default: handler } = await import('./api/gemini');
+            const { default: handler } = await server.ssrLoadModule('./api/gemini.ts');
             let rawBody = '';
             req.on('data', (chunk) => {
               rawBody += chunk;

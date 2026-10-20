@@ -169,8 +169,23 @@ function validateAndNormalizeDomainPlan(
     return null;
   }
 
+  // Deduplicate allocations by category to prevent duplicate collision
+  const seenCategories = new Set<string>();
+  const uniqueAllocations: typeof plan.allocations = [];
+  for (const alloc of plan.allocations) {
+    if (!seenCategories.has(alloc.category)) {
+      seenCategories.add(alloc.category);
+      uniqueAllocations.push(alloc);
+    }
+  }
+
+  if (uniqueAllocations.length < 3) {
+    console.warn('AI Output contained excessive duplicate categories; valid allocations dropped below 3');
+    return null;
+  }
+
   // 3. Exact Budget Normalization: Single-Cent Reconciliation
-  const totalRawAllocated = plan.allocations.reduce(
+  const totalRawAllocated = uniqueAllocations.reduce(
     (sum, a) => sum + (Number(a.allocatedCents) || 0),
     0
   );
@@ -181,21 +196,31 @@ function validateAndNormalizeDomainPlan(
   }
 
   // Use largest-remainder reconciliation to guarantee sum(allocatedCents) === targetBudgetCents
-  const categoriesForReconcile = plan.allocations.map((a) => ({
+  const categoriesForReconcile = uniqueAllocations.map((a) => ({
     category: a.category,
     name: a.name,
     pct: a.percentage > 0 ? a.percentage : (a.allocatedCents / totalRawAllocated) * 100,
   }));
 
   const reconciled = reconcileBudgetCents(targetBudgetCents, categoriesForReconcile);
-  const reconciledAllocations = plan.allocations.map((orig) => {
-    const match = reconciled.find((r) => r.category === orig.category);
+  // Match strictly by array index to guarantee 1:1 pairing and prevent collision
+  const reconciledAllocations = uniqueAllocations.map((orig, idx) => {
+    const matched = reconciled[idx];
     return {
       ...orig,
-      allocatedCents: match ? match.allocatedCents : orig.allocatedCents,
-      percentage: match ? match.percentage : orig.percentage,
+      allocatedCents: matched ? matched.allocatedCents : orig.allocatedCents,
+      percentage: matched ? matched.percentage : orig.percentage,
     };
   });
+
+  // Strict Invariant Assertion: Sum of reconciled allocations must match targetBudgetCents to 0 cents drift
+  const finalReconciledSum = reconciledAllocations.reduce((sum, a) => sum + a.allocatedCents, 0);
+  if (finalReconciledSum !== targetBudgetCents) {
+    console.warn(
+      `Reconciliation invariant assertion failed: sum (${finalReconciledSum}) !== target (${targetBudgetCents})`
+    );
+    return null;
+  }
 
   return {
     ...plan,
@@ -266,14 +291,12 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with 15s execution timeout
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => {
-    abortController.abort();
-  }, 15000);
-
+  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with native 15s HTTP timeout
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { timeout: 15000 },
+    });
 
     const prompt = `
 You are the world's leading Celebration & Event Architect for CelebrAI.
@@ -292,13 +315,7 @@ Calculate all financial allocations in integer cents matching the total budget o
 Output strictly according to the responseSchema provided.
     `.trim();
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      abortController.signal.addEventListener('abort', () => {
-        reject(new Error('Upstream Gemini request timed out after 15 seconds.'));
-      });
-    });
-
-    const geminiPromise = ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model: modelName,
       contents: prompt,
       config: {
@@ -306,9 +323,6 @@ Output strictly according to the responseSchema provided.
         responseSchema: planResponseSchema,
       },
     });
-
-    const response = await Promise.race([geminiPromise, timeoutPromise]);
-    clearTimeout(timeoutId);
 
     const responseText = response.text;
     if (!responseText) {
@@ -337,7 +351,6 @@ Output strictly according to the responseSchema provided.
       data: normalizedPlan,
     });
   } catch (error: any) {
-    clearTimeout(timeoutId);
     console.error('Gemini Server Proxy Error:', error);
     // Graceful fallback to deterministic generator
     const fallbackPlan = generateDeterministicPlan(validatedEvent);

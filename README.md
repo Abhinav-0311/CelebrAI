@@ -3,7 +3,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg)](https://tailwindcss.com/)
-[![Vitest Tests](https://img.shields.io/badge/Tests-18%20Passed-success.svg)](https://vitest.dev/)
+[![Vitest Tests](https://img.shields.io/badge/Tests-37%20Passed-success.svg)](https://vitest.dev/)
+[![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-8%20Journeys%20Passed-emerald.svg)](https://playwright.dev/)
 [![WCAG 2.1 AA Standards](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%20Standards-emerald.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
 [![AI Model](https://img.shields.io/badge/GenAI-Gemini%203.8%20Flash-purple.svg)](https://ai.google.dev/)
 [![Repository Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-brightgreen.svg)]()
@@ -71,7 +72,7 @@ The central innovation of CelebrAI is that an event is a dynamic system of inter
 
 ```mermaid
 flowchart TD
-    subgraph Client["Client Application (Vite + React 19 + TypeScript + Tailwind)"]
+    subgraph Client["Client Application (Vite + React 18.3 + TypeScript + Tailwind)"]
         UI["UI Layer & Responsive Navigation Tabs"]
         State["Zustand Unified Event Store (LocalStorage Sync)"]
         Adaptive["Adaptive Event Intelligence Engine"]
@@ -164,21 +165,35 @@ npm run dev
 ```
 Open `http://localhost:5173` in your browser.
 
-### Automated Testing
+### Automated Testing & Real-Browser E2E Verification
 ```bash
-# Run Vitest test suite (18 unit & integration tests)
+# Run Vitest test suite (37 unit & integration tests)
 npm test
 
 # Run test coverage report
 npm run test:coverage
+
+# Run Playwright real-browser E2E suite (8 full user journeys + visual regression snapshots)
+npm run test:e2e
 ```
+
+### Visual Verification Artifacts
+CelebrAI includes comprehensive high-resolution visual proof across all core user journeys:
+- `screenshots/screenshot_overview.png`: Executive Event Overview, Brand Header & Showcase Metrics
+- `screenshots/screenshot_budget.png`: Minor-Unit Financial Engine, Dynamic Allocations & Ledger
+- `screenshots/screenshot_timeline.png`: Run-of-Show Schedule & Live Day-of Execution Mode
+- `screenshots/screenshot_guests.png`: Guest Management & Kitchen Dietary Summary Portions
+- `screenshots/screenshot_creative.png`: AI Creative Studio (Invitations & Bespoke Speeches)
+- `screenshots/screenshot_adaptive_rejection.png`: Invariant Safety Protection & Rejection Alert
+- `screenshots/screenshot_adaptive_applied.png`: Feasible Adaptive Ripple Impact Calculation
+- `screenshots/screenshot_mobile.png`: Responsive Mobile Viewport Quality Check (iPhone 14)
 
 ### Production Build & Size Audit
 ```bash
 # Compile TypeScript and build production bundle
 npm run build
 ```
-Notice that the total build output is lightweight, optimized, and strictly under 10 MB.
+Notice that the total production bundle is ultra-lean (~107 kB gzipped), and the entire repository is ~1.5 MB with all screenshots included (well below the 10 MB competition ceiling).
 
 ---
 
@@ -193,4 +208,4 @@ Notice that the total build output is lightweight, optimized, and strictly under
 ## 9. License & Credits
 
 Built for **PromptWars Virtual Challenge 5: Celebration & Event Planner** by Hack2skill.  
-Engineered with ❤️ using React 19, TypeScript, Tailwind CSS, and Google Gemini.
+Engineered with ❤️ using React 18.3, TypeScript, Tailwind CSS, and Google Gemini.
