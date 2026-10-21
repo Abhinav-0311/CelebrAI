@@ -1125,10 +1125,13 @@ export default async function handler(req: any, res: any) {
   }
 
   // Multi-Tier Gemini Model Cascade:
-  // Primary: gemini-3.8-flash (Reasoning flagship)
-  // Fallback: gemini-3.5-flash-lite (High-availability failover on 503)
-  const requestedModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-  const candidateModels = Array.from(new Set([requestedModel, 'gemini-3.5-flash-lite']));
+  // Primary: gemini-3.5-flash-lite (Ultra-fast, verified active on this account)
+  // Failover: gemini-3.8-flash (Reasoning flagship)
+  const defaultCandidates = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+  const requestedModel = process.env.GEMINI_MODEL;
+  const candidateModels = requestedModel
+    ? Array.from(new Set([requestedModel, ...defaultCandidates]))
+    : defaultCandidates;
 
   const prompt = `
 You are the AI engine of CelebrAI, a world-class celebration planning platform.
@@ -1144,11 +1147,11 @@ Generate a cohesive, complete, and financially reconciled celebration plan based
 - Vibe / Aesthetic: ${validatedEvent.vibeKeywords.join(', ')}
 ${validatedEvent.specialNotes ? `- Notes: ${validatedEvent.specialNotes}` : ''}
 
-CRITICAL BUSINESS & SCHEMA CONSTRAINTS:
-1. Allocations: Exactly divide the total budget (${targetBudgetCents} cents). Ensure categories like venue, catering, decor, entertainment, photography, and contingency sum to ${targetBudgetCents} cents. Categories must be one of: venue, catering, decor, entertainment, photography, attire, favors, contingency.
-2. Milestones: Chronological run-of-show with realistic times and durations covering load-in to teardown. Categories must be one of: setup, ceremony, reception, keynote, meal, entertainment, speech, teardown.
-3. Vendor Categories: Pragmatic checklists and polite, comprehensive RFP inquiries reflecting the guest count and venue. Categories must be one of: venue, catering, photography, entertainment, florist_decor, officiant_host, rentals.
-4. Creative: Tailored invitations (styles: formal, warm, poetic, playful), authentic speech (tones: heartfelt, humorous, inspiring, nostalgic), evocative music vibes, and interactive party games.
+CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
+1. Allocations: Exactly divide total budget (${targetBudgetCents} cents). Provide 5-6 core categories (from: venue, catering, decor, entertainment, photography, attire, favors, contingency). Percentages must sum to ~100.
+2. Milestones: Provide 5-6 key chronological timeline moments (from: setup, ceremony, reception, keynote, meal, entertainment, speech, teardown) with concise notes.
+3. Vendor Categories: Provide 3 essential categories (from: venue, catering, photography, entertainment, florist_decor, officiant_host, rentals) with 2-3 checklist tasks and a concise 2-sentence inquiry draft.
+4. Creative: Provide 2 distinct invitations (formal and warm), 1 concise heartfelt toast speech (under 100 words), 3 playlist vibes, and 2 party games.
 `;
 
   let lastError: any = null;
@@ -1157,7 +1160,7 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS:
     try {
       const ai = new GoogleGenAI({
         apiKey,
-        httpOptions: { timeout: 11000 },
+        httpOptions: { timeout: 14000 },
       });
 
       const response = await ai.models.generateContent({
@@ -1167,6 +1170,10 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS:
           responseMimeType: 'application/json',
           responseSchema: planResponseSchema,
           temperature: 0.7,
+          maxOutputTokens: 2048,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
         },
       });
 

@@ -172,10 +172,21 @@ async function runDeployedTests() {
   }
 
   console.log('\n============================================================');
-  console.log(`🎉 DEPLOYED PRODUCTION VERIFICATION PASSED WITH 100% SUCCESS!`);
-  console.log(`URL: ${normalizedUrl}`);
-  console.log(`Operating Mode: ${isLive ? `⚡ LIVE GEMINI AI (${apiJson.model})` : '🛡️ OFFLINE DETERMINISTIC PLANNER'}`);
-  console.log(`API Latency: ${apiLatency}ms`);
+  if (isLive) {
+    console.log(`🎉 DEPLOYED PRODUCTION VERIFICATION PASSED WITH 100% SUCCESS!`);
+    console.log(`⚡ LIVE GEMINI AI VERIFIED! Model: ${apiJson.model}`);
+    console.log(`URL: ${normalizedUrl}`);
+    console.log(`API Latency: ${apiLatency}ms`);
+  } else {
+    console.log(`⚠️ HOSTED DEPLOYMENT VERIFIED, BUT LIVE-AI NOT VERIFIED.`);
+    console.log(`Operating Mode: 🛡️ OFFLINE DETERMINISTIC FALLBACK (mode: "${apiJson.mode}")`);
+    console.log(`Reason: ${apiJson.message}`);
+    console.log(`URL: ${normalizedUrl}`);
+    console.log(`API Latency: ${apiLatency}ms`);
+    if (process.argv.includes('--require-live')) {
+      throw new Error(`Assertion failed: Expected mode "live_ai", but received "${apiJson.mode}". Live AI generation was not observed.`);
+    }
+  }
   console.log(`============================================================\n`);
 }
 
