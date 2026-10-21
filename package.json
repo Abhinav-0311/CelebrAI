@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "node scripts/run_e2e.mjs"
+    "test:e2e": "node scripts/run_e2e.mjs",
+    "test:deployed": "node scripts/test_deployed.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",

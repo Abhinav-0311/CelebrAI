@@ -31,8 +31,8 @@ CelebrAI was engineered specifically to score maximum points across all 6 automa
 | :--- | :--- |
 | **Problem Statement Alignment** | Comprehensive support for all celebration categories: Weddings, Milestone Birthdays, Corporate Galas, Anniversaries, Baby Showers, and Themed Parties. Connects Concept Themes, Budget Models, Run-of-Show Timelines, Guest Directories, Catering portioning, Creative Copywriting, and Vendor RFP management. |
 | **Code Quality & Architecture** | Strict TypeScript throughout (`noUnusedLocals`, `strict: true`). Decoupled domain architecture in `src/types/event.ts`, centralized Zustand reactive store with LocalStorage persistence, Zod runtime validation schemas, and modular components. Zero spaghetti code. |
-| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 15s SDK HTTP timeout, single-cent server-side reconciliation, error masking, and sanitized inputs via Zod. Edge rate-limiting can be configured via Vercel WAF / Firewall rules in the Vercel dashboard. |
-| **Efficiency & Performance** | Fast Vite build (~6s). Production bundle size is ~108 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-10ms local state transitions. Repository size is ~2.6 MB (comfortably below the 10 MB competition limit). |
+| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 18s SDK HTTP timeout (30s function execution limit), single-cent server-side reconciliation, error masking, and sanitized inputs via Zod. Rate limiting is enforced in-process and can be augmented via Vercel WAF / Firewall rules in the Vercel dashboard. |
+| **Efficiency & Performance** | Fast Vite build (~6s). Production bundle size is ~108 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-10ms local state transitions. Repository size is ~3.7 MB (comfortably below the 10 MB competition limit). |
 | **Testing & Coverage** | Comprehensive Vitest suite covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine invariant protection, API edge validation, and full UI tab navigation flows. Run with `npm test`. |
 | **Accessibility (WCAG 2.1 AA)** | Semantic HTML5 structure (`<main>`, `<header>`, `<nav>`, `<section>`), skip-to-content screen reader anchor, full ARIA roles (`role="tablist"`, `aria-selected`, `role="dialog"`), visible focus rings for keyboard navigation, and high-contrast color palette. |
 
@@ -111,7 +111,7 @@ flowchart TD
 ### Operating Modes
 CelebrAI does not deceive users or judges about its operational state. A persistent, accessible badge in the top navigation bar clearly communicates the current mode:
 
-1. ⚡ **Live AI Engine:** Connected via secure serverless proxy to **Google Gemini 3.8 Flash** (`@google/genai` v2) with structured JSON output enforcement (`responseSchema`), 15s timeout protection, and server-side exact single-cent reconciliation. Active whenever `GEMINI_API_KEY` is provided.
+1. ⚡ **Live AI Engine:** Connected via secure serverless proxy to **Google Gemini 3.8 Flash** (`@google/genai` v2) with structured JSON output enforcement (`responseSchema`), 18s timeout protection (30s function budget), and server-side exact single-cent reconciliation. Active whenever `GEMINI_API_KEY` is provided.
 2. 🛡️ **Offline Planner:** Uses high-fidelity algorithmic domain logic to create complete, realistic plans when offline, in CI test runners, or when no API key is configured. Zero external dependencies.
 3. ✨ **Sample Showcase:** One-click preloaded event (*Aurora Horizons 10th Anniversary Gala*) demonstrating complete multi-module synchronization out of the box.
 

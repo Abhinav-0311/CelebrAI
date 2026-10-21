@@ -228,7 +228,12 @@ function validateAndNormalizeDomainPlan(
   };
 }
 
-// Server-side IP rate limiter (Sliding-window: max 20 requests per 60 seconds per IP)
+/**
+ * Best-Effort In-Process Rate Limiter (Secondary Layer)
+ * Tracks request timestamps in a local sliding-window per container instance.
+ * Note: In serverless environments with multi-instance scaling, global distributed
+ * enforcement is handled via Vercel Firewall / WAF rules.
+ */
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const ipRequestHistory = new Map<string, number[]>();
@@ -284,8 +289,10 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
 
-  // Server-Side Rate Limiter (Sliding Window IP protection)
-  const clientIp = (req.headers && req.headers['x-forwarded-for'])
+  // Trusted IP Extraction (Prioritize Vercel edge-provided x-real-ip)
+  const clientIp = (req.headers && req.headers['x-real-ip'])
+    ? String(req.headers['x-real-ip']).trim()
+    : (req.headers && req.headers['x-forwarded-for'])
     ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
     : req.socket?.remoteAddress || '127.0.0.1';
 
@@ -351,12 +358,13 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with native 9s HTTP timeout
-  // Function allows 30s total execution budget; 9s timeout leaves 21s safety margin for fallback
+  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with 18s HTTP timeout
+  // Function allows 30s total execution budget; 18s timeout provides ample structured generation
+  // time while leaving a 12s safety margin for fallback
   try {
     const ai = new GoogleGenAI({
       apiKey,
-      httpOptions: { timeout: 9000 },
+      httpOptions: { timeout: 18000 },
     });
 
     const prompt = `
