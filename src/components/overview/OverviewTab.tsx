@@ -360,6 +360,7 @@ export const OverviewTab: React.FC = () => {
                 type="button"
                 onClick={handleApplyGuestChange}
                 disabled={tempGuests === currentEvent.guestCount}
+                aria-label="Recalculate guest adaptive ripple"
                 className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 disabled:opacity-20 hover:opacity-90 transition shrink-0 ml-1"
               >
                 Ripple

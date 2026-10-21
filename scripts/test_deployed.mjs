@@ -159,7 +159,8 @@ async function runDeployedTests() {
   const guestInput = page.locator('#adjust-guests');
   if (await guestInput.isVisible()) {
     await guestInput.fill('160');
-    await page.click('button:has-text("Recalculate")');
+    const rippleBtn = page.locator('button:has-text("Ripple"), button:has-text("Recalculate")').first();
+    await rippleBtn.click();
     await page.waitForTimeout(400);
     const modal = page.locator('div[role="dialog"]');
     if (await modal.isVisible()) {
