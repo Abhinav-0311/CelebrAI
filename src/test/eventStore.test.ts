@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useEventStore } from '../store/eventStore';
+import { computeFinancialSummary } from '../services/eventAnalytics';
+import { EventCreationInput } from '../types/schemas';
 
 describe('Event Store (Business Logic & State Invariants)', () => {
   beforeEach(() => {
@@ -139,5 +141,45 @@ describe('Event Store (Business Logic & State Invariants)', () => {
       // Ensure currentEvent was NOT mutated
       expect(useEventStore.getState().currentEvent?.budget.totalBudgetCents).toBe(4500000);
     }
+  });
+
+  it('enforces fresh event creation with zero committed expenditure and empty ledger (Bug 1 fix)', async () => {
+    const store = useEventStore.getState();
+    const freshInput: EventCreationInput = {
+      title: 'Solstice Sunset Wedding',
+      eventType: 'wedding',
+      guestCount: 140,
+      totalBudget: 42000,
+      currency: 'USD',
+      eventDate: '2026-09-21',
+      timezone: 'America/Los_Angeles',
+      location: 'Napa Valley Estate',
+      venueType: 'garden',
+      vibeKeywords: ['Romantic', 'Golden Hour', 'Atelier'],
+    };
+
+    await store.createEvent(freshInput);
+
+    const freshEvent = useEventStore.getState().currentEvent;
+    expect(freshEvent).not.toBeNull();
+    expect(freshEvent?.title).toBe('Solstice Sunset Wedding');
+    expect(freshEvent?.guestCount).toBe(140);
+    expect(freshEvent?.budget.totalBudgetCents).toBe(4200000); // $42,000.00
+
+    // Critical Bug 1 assertion: expense ledger must be strictly empty
+    expect(freshEvent?.budget.expenses).toEqual([]);
+
+    // Critical Bug 1 assertion: every allocation must initialize with actualSpentCents = 0
+    freshEvent?.budget.allocations.forEach((alloc) => {
+      expect(alloc.actualSpentCents).toBe(0);
+    });
+
+    // Financial summary must show strictly $0.00 committed and 100% available headroom
+    const summary = computeFinancialSummary(freshEvent!.budget);
+    expect(summary.totalCommittedCents).toBe(0);
+    expect(summary.totalPaidCents).toBe(0);
+    expect(summary.totalOutstandingCents).toBe(0);
+    expect(summary.remainingHeadroomCents).toBe(4200000);
+    expect(summary.isOverBudget).toBe(false);
   });
 });

@@ -131,7 +131,7 @@ export const useEventStore = create<EventStoreState>()(
               totalBudgetCents: totalCents,
               currency: input.currency || 'USD',
               contingencyRate: 0.05,
-              allocations: result.plan.allocations,
+              allocations: result.plan.allocations.map((a) => ({ ...a, actualSpentCents: 0 })),
               expenses: [],
             },
             guests: {

@@ -109,4 +109,41 @@ describe('CelebrAI UI Integration & Flow Tests', () => {
     // Guest count should now be 180
     expect(useEventStore.getState().currentEvent?.guestCount).toBe(180);
   });
+
+  it('verifies OverviewTab displays $0.00 committed spend for fresh event and synchronizes quick-adjust inputs (Bug 1 & 2 fixes)', async () => {
+    const { rerender } = render(<App />);
+
+    // Initial sample event has 150 guests and $45,000 budget
+    const guestInput = screen.getByLabelText(/Guest Count/i) as HTMLInputElement;
+    const budgetInput = screen.getByLabelText(/Budget/i) as HTMLInputElement;
+    expect(guestInput.value).toBe('150');
+    expect(budgetInput.value).toBe('45000');
+
+    // Create a new fresh event with 140 guests and $35,000 budget
+    await useEventStore.getState().createEvent({
+      title: 'Montecito Garden Soirée',
+      eventType: 'wedding',
+      guestCount: 140,
+      totalBudget: 35000,
+      currency: 'USD',
+      eventDate: '2026-10-10',
+      timezone: 'America/Los_Angeles',
+      location: 'Montecito Estate',
+      venueType: 'garden',
+      vibeKeywords: ['Elegant', 'Botanical'],
+    });
+
+    rerender(<App />);
+
+    // Bug 1 assertion: Fresh event committed spending in Overview must be strictly $0 and 100% uncommitted
+    expect(screen.getByText(/Committed:/i)).toBeInTheDocument();
+    expect(screen.getByText('$0')).toBeInTheDocument();
+    expect(screen.getByText('100% Uncommitted')).toBeInTheDocument();
+
+    // Bug 2 assertion: Inputs must be updated to new event's values (140, 35000) instead of stale 150, 45000
+    const updatedGuestInput = screen.getByLabelText(/Guest Count/i) as HTMLInputElement;
+    const updatedBudgetInput = screen.getByLabelText(/Budget/i) as HTMLInputElement;
+    expect(updatedGuestInput.value).toBe('140');
+    expect(updatedBudgetInput.value).toBe('35000');
+  });
 });

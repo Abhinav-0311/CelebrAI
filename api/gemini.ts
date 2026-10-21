@@ -476,7 +476,7 @@ export function preprocessAndNormalizeRawGeminiPlan(raw: any): any {
         id: alloc?.id || `alloc-${idx + 1}`,
         category,
         allocatedCents: Math.round(Number(alloc?.allocatedCents) || 0),
-        actualSpentCents: Math.round(Number(alloc?.actualSpentCents) || 0),
+        actualSpentCents: 0,
       };
     });
   }
@@ -981,6 +981,7 @@ export function validateAndNormalizeDomainPlan(
       ...orig,
       allocatedCents: matched ? matched.allocatedCents : orig.allocatedCents,
       percentage: matched ? matched.percentage : orig.percentage,
+      actualSpentCents: 0,
     };
   });
 
