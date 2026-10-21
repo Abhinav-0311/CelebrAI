@@ -7,13 +7,20 @@ import {
   Copy, 
   Check, 
   DollarSign, 
-  UserCheck 
+  UserCheck,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { formatCurrency } from '../../types/event';
 
 export const VendorsTab: React.FC = () => {
-  const { currentEvent, toggleVendorChecklist } = useEventStore();
+  const { 
+    currentEvent, 
+    toggleVendorChecklist,
+    dismissVendorReview,
+    syncVendorDraftHeadcount 
+  } = useEventStore();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   if (!currentEvent) return null;
@@ -95,6 +102,42 @@ export const VendorsTab: React.FC = () => {
                   {completedTasks} / {totalTasks} Tasks Done
                 </div>
               </div>
+
+              {/* Adaptive Needs Review Flag */}
+              {cat.needsReview && (
+                <div
+                  role="status"
+                  className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn"
+                >
+                  <div className="flex items-start sm:items-center gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+                    <div>
+                      <span className="font-bold">Adaptive Parameter Update: </span>
+                      <span>{cat.reviewReason || 'Event parameters have changed. Please verify inquiry content.'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    {cat.category === 'catering' && (
+                      <button
+                        type="button"
+                        onClick={() => syncVendorDraftHeadcount(cat.id, currentEvent.guestCount)}
+                        className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 hover:bg-amber-300 transition flex items-center gap-1"
+                        title={`Sync inquiry draft to reference ${currentEvent.guestCount} guests`}
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Update to {currentEvent.guestCount} Guests</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => dismissVendorReview(cat.id)}
+                      className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                    >
+                      Mark Reviewed
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Checklist & RFP Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

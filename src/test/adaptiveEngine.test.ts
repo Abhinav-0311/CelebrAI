@@ -127,4 +127,31 @@ describe('Adaptive Event Intelligence Engine (Invariant Protection)', () => {
       expect(alloc.allocatedCents).toBeGreaterThanOrEqual(alloc.actualSpentCents);
     });
   });
+
+  it('flags dependent vendor drafts and invitations for review when guest count shifts without silent overwrites', () => {
+    const alert = analyzeGuestCountChange(sampleEventData, 180);
+    expect(alert).not.toBeNull();
+
+    const patched = applyRipplePatch(sampleEventData, alert!);
+    
+    // Catering category must be flagged for review
+    const cateringCat = patched.vendors.categories.find((c) => c.category === 'catering');
+    expect(cateringCat?.needsReview).toBe(true);
+    expect(cateringCat?.reviewReason).toContain('180');
+    // Existing user-drafted inquiry text must NOT be silently overwritten
+    expect(cateringCat?.inquiryDraft).toBe(sampleEventData.vendors.categories.find((c) => c.category === 'catering')?.inquiryDraft);
+
+    // Invitations must be flagged for review
+    expect(patched.creative.invitations[0].needsReview).toBe(true);
+    expect(patched.creative.invitations[0].reviewReason).toContain('180');
+  });
+
+  it('flags vendor categories for review when total budget shifts', () => {
+    const alert = analyzeBudgetChange(sampleEventData, 5000000); // $50,000
+    expect(alert).not.toBeNull();
+
+    const patched = applyRipplePatch(sampleEventData, alert!);
+    expect(patched.vendors.categories.every((c) => c.needsReview)).toBe(true);
+    expect(patched.vendors.categories[0].reviewReason).toContain('$50,000');
+  });
 });

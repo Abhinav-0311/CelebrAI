@@ -71,6 +71,9 @@ interface EventStoreState {
 
   // Vendor Actions
   toggleVendorChecklist: (categoryId: string, checklistId: string) => void;
+  dismissVendorReview: (categoryId: string) => void;
+  syncVendorDraftHeadcount: (categoryId: string, newCount: number) => void;
+  dismissInvitationReview: (invitationId: string) => void;
 
   // Persistence & Data Transfer
   exportEventJson: () => string;
@@ -518,6 +521,66 @@ export const useEventStore = create<EventStoreState>()(
             vendors: {
               ...currentEvent.vendors,
               categories: updatedCategories,
+            },
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      },
+
+      dismissVendorReview: (categoryId: string) => {
+        const { currentEvent } = get();
+        if (!currentEvent) return;
+        set({
+          currentEvent: {
+            ...currentEvent,
+            vendors: {
+              ...currentEvent.vendors,
+              categories: currentEvent.vendors.categories.map((cat) =>
+                cat.id === categoryId ? { ...cat, needsReview: false, reviewReason: undefined } : cat
+              ),
+            },
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      },
+
+      syncVendorDraftHeadcount: (categoryId: string, newCount: number) => {
+        const { currentEvent } = get();
+        if (!currentEvent) return;
+        set({
+          currentEvent: {
+            ...currentEvent,
+            vendors: {
+              ...currentEvent.vendors,
+              categories: currentEvent.vendors.categories.map((cat) => {
+                if (cat.id === categoryId) {
+                  const updatedDraft = cat.inquiryDraft.replace(/\b\d+\s+guests?\b/gi, `${newCount} guests`);
+                  return {
+                    ...cat,
+                    inquiryDraft: updatedDraft,
+                    needsReview: false,
+                    reviewReason: undefined,
+                  };
+                }
+                return cat;
+              }),
+            },
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      },
+
+      dismissInvitationReview: (invitationId: string) => {
+        const { currentEvent } = get();
+        if (!currentEvent) return;
+        set({
+          currentEvent: {
+            ...currentEvent,
+            creative: {
+              ...currentEvent.creative,
+              invitations: currentEvent.creative.invitations.map((inv) =>
+                inv.id === invitationId ? { ...inv, needsReview: false, reviewReason: undefined } : inv
+              ),
             },
             updatedAt: new Date().toISOString(),
           },

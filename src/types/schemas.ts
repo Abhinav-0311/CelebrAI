@@ -82,6 +82,8 @@ export const AIVendorCategorySchema = z.object({
     isCompleted: z.boolean().default(false),
   })),
   inquiryDraft: z.string(),
+  needsReview: z.boolean().optional(),
+  reviewReason: z.string().optional(),
 });
 
 export const AICreativeSuiteSchema = z.object({
@@ -92,6 +94,8 @@ export const AICreativeSuiteSchema = z.object({
     body: z.string(),
     rsvpCallToAction: z.string(),
     dressCodeNote: z.string(),
+    needsReview: z.boolean().optional(),
+    reviewReason: z.string().optional(),
   })),
   speeches: z.array(z.object({
     id: z.string(),

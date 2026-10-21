@@ -3,11 +3,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg)](https://tailwindcss.com/)
-[![Vitest Tests](https://img.shields.io/badge/Tests-37%20Passed-success.svg)](https://vitest.dev/)
-[![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-8%20Journeys%20Passed-emerald.svg)](https://playwright.dev/)
+[![Vitest Tests](https://img.shields.io/badge/Tests-47%20Passed-success.svg)](https://vitest.dev/)
+[![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-9%20Journeys%20Passed-emerald.svg)](https://playwright.dev/)
 [![WCAG 2.1 AA Standards](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%20Standards-emerald.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
 [![AI Model](https://img.shields.io/badge/GenAI-Gemini%203.8%20Flash-purple.svg)](https://ai.google.dev/)
-[![Repository Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-brightgreen.svg)]()
+[![Repository Size](https://img.shields.io/badge/Repo%20Size-2.6%20MB-brightgreen.svg)]()
 
 > **Submission for Hack2skill PromptWars Virtual (`pwvirtual1`)**  
 > **Challenge:** [Challenge 5] Celebration & Event Planner  
@@ -31,8 +31,8 @@ CelebrAI was engineered specifically to score maximum points across all 6 automa
 | :--- | :--- |
 | **Problem Statement Alignment** | Comprehensive support for all celebration categories: Weddings, Milestone Birthdays, Corporate Galas, Anniversaries, Baby Showers, and Themed Parties. Connects Concept Themes, Budget Models, Run-of-Show Timelines, Guest Directories, Catering portioning, Creative Copywriting, and Vendor RFP management. |
 | **Code Quality & Architecture** | Strict TypeScript throughout (`noUnusedLocals`, `strict: true`). Decoupled domain architecture in `src/types/event.ts`, centralized Zustand reactive store with LocalStorage persistence, Zod runtime validation schemas, and modular components. Zero spaghetti code. |
-| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 15s `AbortController` execution timeout, single-cent server-side reconciliation, and sanitized inputs via Zod. Edge rate-limiting can be enabled via Vercel WAF / Firewall rules in the Vercel dashboard. |
-| **Efficiency & Performance** | Blazing-fast Vite build (~2s). Production bundle size is under 200 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-10ms local state transitions. Repository size is strictly `< 1 MB` (well under the 10 MB competition limit). |
+| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 15s SDK HTTP timeout, single-cent server-side reconciliation, error masking, and sanitized inputs via Zod. Edge rate-limiting can be configured via Vercel WAF / Firewall rules in the Vercel dashboard. |
+| **Efficiency & Performance** | Fast Vite build (~6s). Production bundle size is ~108 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-10ms local state transitions. Repository size is ~2.6 MB (comfortably below the 10 MB competition limit). |
 | **Testing & Coverage** | Comprehensive Vitest suite covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine invariant protection, API edge validation, and full UI tab navigation flows. Run with `npm test`. |
 | **Accessibility (WCAG 2.1 AA)** | Semantic HTML5 structure (`<main>`, `<header>`, `<nav>`, `<section>`), skip-to-content screen reader anchor, full ARIA roles (`role="tablist"`, `aria-selected`, `role="dialog"`), visible focus rings for keyboard navigation, and high-contrast color palette. |
 
@@ -167,13 +167,13 @@ Open `http://localhost:5173` in your browser.
 
 ### Automated Testing & Real-Browser E2E Verification
 ```bash
-# Run Vitest test suite (37 unit & integration tests)
+# Run Vitest test suite (47 unit & integration tests)
 npm test
 
 # Run test coverage report
 npm run test:coverage
 
-# Run Playwright real-browser E2E suite (8 full user journeys + visual regression snapshots)
+# Run Playwright real-browser E2E suite (9 full user journeys + visual regression snapshots)
 npm run test:e2e
 ```
 
@@ -186,14 +186,14 @@ CelebrAI includes comprehensive high-resolution visual proof across all core use
 - `screenshots/screenshot_creative.png`: AI Creative Studio (Invitations & Bespoke Speeches)
 - `screenshots/screenshot_adaptive_rejection.png`: Invariant Safety Protection & Rejection Alert
 - `screenshots/screenshot_adaptive_applied.png`: Feasible Adaptive Ripple Impact Calculation
-- `screenshots/screenshot_mobile.png`: Responsive Mobile Viewport Quality Check (iPhone 14)
+- `screenshots/screenshot_mobile.png`: Responsive Mobile Viewport Quality Check (iPhone 14 & compact)
 
 ### Production Build & Size Audit
 ```bash
 # Compile TypeScript and build production bundle
 npm run build
 ```
-Notice that the total production bundle is ultra-lean (~107 kB gzipped), and the entire repository is ~1.5 MB with all screenshots included (well below the 10 MB competition ceiling).
+The total production bundle is ultra-lean (~108 kB gzipped), and the entire repository is ~2.6 MB with all screenshots included (well below the 10 MB competition ceiling).
 
 ---
 
@@ -201,7 +201,7 @@ Notice that the total production bundle is ultra-lean (~107 kB gzipped), and the
 
 - **Public GitHub Repo:** [https://github.com/Abhinav-0311/CelebrAI](https://github.com/Abhinav-0311/CelebrAI)
 - **GenAI Services Utilized:** Google Gemini 3.8 Flash (structured JSON schema mode) for celebration concept modeling, budget allocation, run-of-show scheduling, and creative copywriting.
-- **Repository Size:** Under 1 MB (limit: 10 MB).
+- **Repository Size:** ~2.6 MB (competition limit: 10 MB).
 
 ---
 

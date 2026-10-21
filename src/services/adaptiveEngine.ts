@@ -66,6 +66,10 @@ export function analyzeGuestCountChange(
         description: `Expand total budget by ${formatCurrency(cateringDeltaCents - availableContingencyCents, currentEvent.budget.currency)} or rebalance secondary categories`,
       });
     }
+    recommendedActions.push({
+      actionType: 'update_timeline',
+      description: `Flag dependent vendor RFP inquiries and digital invitations for review (${oldCount} → ${newGuestCount} guests)`,
+    });
   } else {
     recommendedActions.push({
       actionType: 'recalculate_catering',
@@ -77,6 +81,10 @@ export function analyzeGuestCountChange(
         description: `Consolidate floor layout: remove ${Math.abs(tableDelta)} table(s) (New total: ${newTables} tables)`,
       });
     }
+    recommendedActions.push({
+      actionType: 'update_timeline',
+      description: `Flag dependent vendor RFP inquiries and digital invitations for review (${oldCount} → ${newGuestCount} guests)`,
+    });
   }
 
   return {
@@ -218,6 +226,24 @@ export function applyRipplePatch(
 
     // Update guest dietary summary total
     updated.guests.dietarySummary.totalInvited = newCount;
+
+    // Flag dependent vendor inquiries for review without silently overwriting user text
+    if (updated.vendors && Array.isArray(updated.vendors.categories)) {
+      updated.vendors.categories.forEach((cat) => {
+        if (cat.category === 'catering' || cat.category === 'venue') {
+          cat.needsReview = true;
+          cat.reviewReason = `Guest target updated to ${newCount} (was ${alert.previousValue}). Review headcount and dietary specifics.`;
+        }
+      });
+    }
+
+    // Flag invitations for review
+    if (updated.creative && Array.isArray(updated.creative.invitations)) {
+      updated.creative.invitations.forEach((inv) => {
+        inv.needsReview = true;
+        inv.reviewReason = `Guest count shifted to ${newCount} (was ${alert.previousValue}). Review invitation copy.`;
+      });
+    }
   } else if (alert.triggerType === 'budget_change') {
     const newTotalCents = Number(alert.newValue);
     const totalActualSpentCents = updated.budget.allocations.reduce((sum, a) => sum + a.actualSpentCents, 0);
@@ -279,6 +305,14 @@ export function applyRipplePatch(
         percentage,
       };
     });
+
+    // Flag vendor categories for review
+    if (updated.vendors && Array.isArray(updated.vendors.categories)) {
+      updated.vendors.categories.forEach((cat) => {
+        cat.needsReview = true;
+        cat.reviewReason = `Budget adjusted to ${formatCurrency(newTotalCents, updated.budget.currency)}. Category allocations have rebalanced.`;
+      });
+    }
   }
 
   // Mark alert as applied

@@ -7,12 +7,13 @@ import {
   Music, 
   Gamepad2, 
   Sparkles, 
-  MessageSquare 
+  MessageSquare,
+  AlertTriangle 
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 
 export const CreativeTab: React.FC = () => {
-  const { currentEvent } = useEventStore();
+  const { currentEvent, dismissInvitationReview } = useEventStore();
   const [selectedInvStyle, setSelectedInvStyle] = useState<string>('formal');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -88,6 +89,26 @@ export const CreativeTab: React.FC = () => {
 
         {activeInvitation && (
           <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-gradient-to-b from-slate-50 to-white dark:from-slate-800/40 dark:to-slate-900 space-y-4 shadow-sm relative">
+            {/* Adaptive Review Banner */}
+            {activeInvitation.needsReview && (
+              <div
+                role="status"
+                className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-fadeIn"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{activeInvitation.reviewReason || 'Event parameters have changed. Please verify invitation copy.'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => dismissInvitationReview(activeInvitation.id)}
+                  className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition self-end sm:self-auto"
+                >
+                  Mark Reviewed
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
                 Headline

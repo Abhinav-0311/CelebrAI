@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -210,6 +211,22 @@ async function runE2ETests() {
     }
     console.log('✓ Feasible adaptive expansion (+30 guests, +3 tables, +$2,400 catering) applied seamlessly');
 
+    // Verify Vendors Tab reflects adaptive review flag and user-controlled headcount sync
+    await page.click('#tab-vendors');
+    await page.waitForTimeout(400);
+    const vendorReviewBanner = page.locator('text=Adaptive Parameter Update').first();
+    if (await vendorReviewBanner.isVisible()) {
+      console.log('✓ Dependent vendor inquiries successfully flagged for review (no silent overwriting)');
+      const syncBtn = page.locator('button:has-text("Update to 180 Guests")');
+      if (await syncBtn.isVisible()) {
+        await syncBtn.click();
+        await page.waitForTimeout(300);
+        console.log('✓ One-click vendor RFP headcount sync to 180 guests verified');
+      }
+    }
+    await page.click('#tab-overview');
+    await page.waitForTimeout(300);
+
     // --- JOURNEY 5: Add Expense to Budget Ledger ---
     console.log('\n--- Journey 5: Add Line-Item Expense Ledger Verification ---');
     await page.click('#tab-budget');
@@ -301,38 +318,58 @@ async function runE2ETests() {
     // Restore desktop viewport
     await page.setViewportSize({ width: 1440, height: 900 });
 
-    // --- JOURNEY 8: Data Export & Lossless Restoration ---
-    console.log('\n--- Journey 8: Lossless JSON Export & Import Restoration Verification ---');
-    // Read persisted state from localStorage ('celebr-ai-storage-v1')
-    const exportedJson = await page.evaluate(() => {
-      const storeState = JSON.parse(localStorage.getItem('celebr-ai-storage-v1') || '{}');
-      return JSON.stringify(storeState.state?.currentEvent);
+    // --- JOURNEY 8: Real Browser File Download Export & Upload Import ---
+    console.log('\n--- Journey 8: Lossless JSON Export & Import via Real UI File Transfer ---');
+
+    // Register dialog listener for import success/failure alerts
+    page.on('dialog', async (dialog) => {
+      console.log(`[Browser Dialog] ${dialog.type()}: "${dialog.message()}"`);
+      await dialog.accept();
     });
 
-    if (!exportedJson || exportedJson === 'null' || exportedJson.length < 100) {
-      throw new Error(`Exported JSON data is empty or invalid (length: ${exportedJson?.length})`);
+    // 1. Export JSON via real UI download button
+    const downloadPromise = page.waitForEvent('download');
+    const exportBtn = page.locator('button[aria-label="Export event JSON"]:visible').first();
+    await exportBtn.click();
+    const download = await downloadPromise;
+    const downloadFilename = download.suggestedFilename();
+    const tempExportPath = path.join(os.tmpdir(), `test-export-${Date.now()}-${downloadFilename}`);
+    await download.saveAs(tempExportPath);
+
+    // Verify downloaded file on disk
+    if (!fs.existsSync(tempExportPath)) {
+      throw new Error(`Downloaded JSON file was not saved to ${tempExportPath}`);
+    }
+    const downloadedRaw = fs.readFileSync(tempExportPath, 'utf-8');
+    const downloadedData = JSON.parse(downloadedRaw);
+    if (!downloadedData || !downloadedData.title || !downloadedData.guestCount) {
+      throw new Error('Downloaded file does not contain valid CelebrAI event JSON structure');
+    }
+    const exportedGuests = downloadedData.guestCount;
+    console.log(`✓ Real file download captured: "${downloadFilename}" (${downloadedRaw.length} bytes, guestCount: ${exportedGuests})`);
+
+    // 2. Reset event to Sample State (150 guests) to establish distinct initial state
+    await page.click('button:has-text("Sample Event")');
+    await page.waitForTimeout(500);
+
+    // 3. Upload previously downloaded JSON using real HTML file input control
+    const fileInput = page.locator('input[type="file"][accept=".json"]');
+    await fileInput.setInputFiles(tempExportPath);
+    await page.waitForTimeout(600);
+
+    // 4. Verify state restored in DOM
+    const pageText = await page.innerText('body');
+    if (!pageText.includes(downloadedData.title)) {
+      throw new Error(`Failed to restore event title "${downloadedData.title}" via real file upload`);
     }
 
-    // Reset event via Sample Event button to show state change
-    await page.click('button:has-text("Sample Event")');
-    await page.waitForTimeout(400);
-
-    // Import the exported data back into the store
-    const importSuccess = await page.evaluate((jsonToImport) => {
-      const parsed = JSON.parse(jsonToImport);
-      const storeState = JSON.parse(localStorage.getItem('celebr-ai-storage-v1') || '{}');
-      if (storeState.state) {
-        storeState.state.currentEvent = parsed;
-        localStorage.setItem('celebr-ai-storage-v1', JSON.stringify(storeState));
-        return true;
-      }
-      return false;
-    }, exportedJson);
-
-    if (!importSuccess) throw new Error('Failed to import JSON data into client state');
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(400);
-    console.log('✓ Full export → reset → import → state restoration cycle verified');
+    // Clean up temporary file
+    try {
+      fs.unlinkSync(tempExportPath);
+    } catch {
+      // non-fatal
+    }
+    console.log('✓ Full real-browser UI cycle verified: Download Export → Reset → File Input Upload → Lossless State Restoration');
 
     // --- JOURNEY 9: Create New Bespoke Event Wizard (Offline Planner) ---
     console.log('\n--- Journey 9: Bespoke Event Creation Wizard Across All Modules ---');

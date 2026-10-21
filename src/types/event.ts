@@ -140,6 +140,8 @@ export interface VendorCategory {
   contactEmail?: string;
   checklist: VendorChecklistItem[];
   inquiryDraft: string;
+  needsReview?: boolean;
+  reviewReason?: string;
 }
 
 export interface InvitationDraft {
@@ -149,6 +151,8 @@ export interface InvitationDraft {
   body: string;
   rsvpCallToAction: string;
   dressCodeNote: string;
+  needsReview?: boolean;
+  reviewReason?: string;
 }
 
 export interface SpeechDraft {
