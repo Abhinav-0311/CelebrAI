@@ -1150,10 +1150,10 @@ Generate a cohesive, complete, and financially reconciled celebration plan based
 ${validatedEvent.specialNotes ? `- Notes: ${validatedEvent.specialNotes}` : ''}
 
 CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
-1. Allocations: Exactly divide total budget (${targetBudgetCents} cents). Provide 5-6 core categories (from: venue, catering, decor, entertainment, photography, attire, favors, contingency). Percentages must sum to ~100.
-2. Milestones: Provide 5-6 key chronological timeline moments (from: setup, ceremony, reception, keynote, meal, entertainment, speech, teardown) with concise notes.
-3. Vendor Categories: Provide 3 essential categories (from: venue, catering, photography, entertainment, florist_decor, officiant_host, rentals) with 2-3 checklist tasks and a concise 2-sentence inquiry draft.
-4. Creative: Provide 2 distinct invitations (formal and warm), 1 concise heartfelt toast speech (under 100 words), 3 playlist vibes, and 2 party games.
+1. Allocations: Exactly divide total budget (${targetBudgetCents} cents). Provide 4-5 core categories (from: venue, catering, entertainment, photography, contingency). Percentages must sum to ~100.
+2. Milestones: Provide 4 key chronological timeline moments (from: setup, ceremony, meal, teardown) with concise notes.
+3. Vendor Categories: Provide 2 essential categories (from: venue, catering, photography, entertainment, florist_decor) with 2 checklist tasks and a 1-sentence inquiry draft.
+4. Creative: Provide 2 distinct invitations (formal and warm), 1 concise heartfelt toast speech (under 75 words), 2 playlist vibes, and 1 party game.
 `;
 
   let lastError: any = null;
@@ -1168,7 +1168,7 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
     try {
       const ai = new GoogleGenAI({
         apiKey,
-        httpOptions: { timeout: 10000 },
+        httpOptions: { timeout: 20000 },
       });
 
       const response = await ai.models.generateContent({
