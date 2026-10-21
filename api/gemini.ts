@@ -838,14 +838,13 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with 18s HTTP timeout
-  try {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: { timeout: 18000 },
-    });
+  // Resilient Multi-Tier Gemini Model Cascade:
+  // Tries primary model (gemini-3.8-flash) and falls back to high-availability tiers
+  // (gemini-3.5-flash-lite, gemini-2.5-flash) if Google returns 503 High Demand / UNAVAILABLE.
+  const requestedModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const candidateModels = Array.from(new Set([requestedModel, 'gemini-3.5-flash-lite', 'gemini-2.5-flash']));
 
-    const prompt = `
+  const prompt = `
 You are the AI engine of CelebrAI, a world-class celebration planning platform.
 Generate a cohesive, complete, and financially reconciled celebration plan based on these parameters:
 - Event Title: "${validatedEvent.title}"
@@ -866,51 +865,58 @@ CRITICAL BUSINESS CONSTRAINTS:
 4. Creative: Tailored invitations (formal & warm), an authentic speech, evocative music vibes, and interactive party games.
 `;
 
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: planResponseSchema,
-        temperature: 0.7,
-      },
-    });
+  let lastError: any = null;
 
-    const rawText = response.text;
-    if (!rawText) {
-      throw new Error('Gemini API returned empty text response.');
-    }
+  for (const modelName of candidateModels) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { timeout: 10000 },
+      });
 
-    const parsedJson = JSON.parse(rawText);
-    const normalizedPlan = validateAndNormalizeDomainPlan(parsedJson, targetBudgetCents);
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: planResponseSchema,
+          temperature: 0.7,
+        },
+      });
 
-    if (!normalizedPlan) {
-      console.warn('Live Gemini plan failed validation or normalization; using deterministic fallback');
-      const fallbackPlan = generateDeterministicPlan(validatedEvent);
+      const rawText = response.text;
+      if (!rawText) {
+        throw new Error(`Model ${modelName} returned empty text response.`);
+      }
+
+      const parsedJson = JSON.parse(rawText);
+      const normalizedPlan = validateAndNormalizeDomainPlan(parsedJson, targetBudgetCents);
+
+      if (!normalizedPlan) {
+        console.warn(`Live Gemini candidate '${modelName}' output failed validation; trying next candidate.`);
+        continue;
+      }
+
       return res.status(200).json({
         success: true,
-        mode: 'offline_fallback',
-        message: 'Live AI output failed domain validation; reconciled via deterministic engine.',
-        data: fallbackPlan,
+        mode: 'live',
+        model: modelName,
+        data: normalizedPlan,
       });
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Gemini API candidate '${modelName}' failed:`, err.message || err);
+      // Continue to next candidate model if 503 or transient failure
     }
-
-    return res.status(200).json({
-      success: true,
-      mode: 'live',
-      model: modelName,
-      data: normalizedPlan,
-    });
-  } catch (err: any) {
-    console.error('Gemini API execution error:', err.message || err);
-    // Graceful error masking with deterministic fallback
-    const fallbackPlan = generateDeterministicPlan(validatedEvent);
-    return res.status(200).json({
-      success: true,
-      mode: 'offline_fallback',
-      message: 'Gemini request timed out or encountered an upstream error; fallback plan generated.',
-      data: fallbackPlan,
-    });
   }
+
+  // Graceful error masking with deterministic fallback if all candidate models fail
+  console.error('All Gemini API candidate models exhausted:', lastError?.message || lastError);
+  const fallbackPlan = generateDeterministicPlan(validatedEvent);
+  return res.status(200).json({
+    success: true,
+    mode: 'offline_fallback',
+    message: 'Gemini request timed out or encountered upstream high demand; fallback plan generated.',
+    data: fallbackPlan,
+  });
 }
