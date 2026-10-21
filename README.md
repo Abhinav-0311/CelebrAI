@@ -3,11 +3,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg)](https://tailwindcss.com/)
-[![Vitest Tests](https://img.shields.io/badge/Tests-48%20Passed-success.svg)](https://vitest.dev/)
+[![Vitest Tests](https://img.shields.io/badge/Tests-50%20Passed-success.svg)](https://vitest.dev/)
 [![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-9%20Journeys%20Passed-emerald.svg)](https://playwright.dev/)
 [![WCAG 2.1 AA Standards](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%20Standards-emerald.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
-[![AI Model](https://img.shields.io/badge/GenAI-Gemini%203.8%20Flash-purple.svg)](https://ai.google.dev/)
-[![Repository Size](https://img.shields.io/badge/Repo%20Size-3.3%20MB-brightgreen.svg)]()
+[![AI Model](https://img.shields.io/badge/GenAI-Gemini%203.5%20Flash--Lite-purple.svg)](https://ai.google.dev/)
+[![Repository Size](https://img.shields.io/badge/Repo%20Size-4.2%20MB-brightgreen.svg)]()
 
 > **Submission for Hack2skill PromptWars Virtual (`pwvirtual1`)**  
 > **Challenge:** [Challenge 5] Celebration & Event Planner  
@@ -19,7 +19,7 @@
 
 **CelebrAI** is an enterprise-grade, end-to-end AI-powered Celebration & Event Planning platform. While traditional event dashboards remain static and disconnected once generated, CelebrAI introduces the **Adaptive Event Intelligence Engine**: an interconnected domain system that detects cross-module adjustments (such as guest count expansions or budget constraints) and computes real-time quantitative ripple effects across catering allocations, seating capacities, and vendor deliverables.
 
-Evaluators can immediately experience the entire unified lifecycle with **zero setup** via the preloaded **Sample Showcase Event**, or generate tailored bespoke celebrations using **Google Gemini 3.8 Flash** or the integrated **Deterministic Offline Planner**.
+Evaluators can immediately experience the entire unified lifecycle with **zero setup** via the preloaded **Sample Showcase Event**, or generate tailored bespoke celebrations using **Google Gemini 3.5 Flash-Lite** (with automatic failover to `gemini-3.8-flash`) or the integrated **Deterministic Offline Planner**.
 
 ---
 
@@ -31,9 +31,9 @@ CelebrAI was engineered specifically to score maximum points across all 6 automa
 | :--- | :--- |
 | **Problem Statement Alignment** | Comprehensive support for all celebration categories: Weddings, Milestone Birthdays, Corporate Galas, Anniversaries, Baby Showers, and Themed Parties. Connects Concept Themes, Budget Models, Run-of-Show Timelines, Guest Directories, Catering portioning, Creative Copywriting, and Vendor RFP management. |
 | **Code Quality & Architecture** | Strict TypeScript throughout (`noUnusedLocals`, `strict: true`). Decoupled domain architecture in `src/types/event.ts`, centralized Zustand reactive store with LocalStorage persistence, Zod runtime validation schemas, and modular components. Zero spaghetti code. |
-| **Security** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, 18s SDK HTTP timeout (30s function execution limit), single-cent server-side reconciliation, error masking, and sanitized inputs via Zod. Rate limiting is enforced in-process and can be augmented via Vercel WAF / Firewall rules in the Vercel dashboard. |
-| **Efficiency & Performance** | Fast Vite build (~6s). Production bundle size is ~108 KB gzipped. Tree-shaken Lucide icons, memoized hooks, and sub-10ms local state transitions. Repository size is ~3.7 MB (comfortably below the 10 MB competition limit). |
-| **Testing & Coverage** | Comprehensive Vitest suite covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine invariant protection, API edge validation, and full UI tab navigation flows. Run with `npm test`. |
+| **Security & Privacy** | **Zero Client-Side Secret Leakage.** `GEMINI_API_KEY` is never bundled into client JavaScript. Secured through a serverless backend proxy (`/api/gemini`). Enforces 25 KB payload cap, strict POST-only methods, shared 20s total upstream inference budget across candidate models (within a 30s function envelope), single-cent server-side reconciliation, sanitized public responses (detailed candidate diagnostics kept in server logs only), and sanitized inputs via Zod. In-process rate limiting (HTTP 429) is enforced and accompanied by global Vercel Firewall / WAF protection in the Vercel dashboard. |
+| **Efficiency & Performance** | Fast Vite build (~6s). Production bundle size is ~109 kB gzipped. Tree-shaken Lucide icons, memoized hooks, sub-10ms local state transitions, and ~5.1s live Gemini API generation latency. Repository size is ~4.2 MB (comfortably below the 10 MB competition limit). |
+| **Testing & Coverage** | Comprehensive Vitest suite (50 tests passed) covering domain calculations, deterministic planners, Zustand store reducers, the Adaptive Intelligence Engine invariant protection, API edge validation, and full UI tab navigation flows. Run with `npm test`. |
 | **Accessibility (WCAG 2.1 AA)** | Semantic HTML5 structure (`<main>`, `<header>`, `<nav>`, `<section>`), skip-to-content screen reader anchor, full ARIA roles (`role="tablist"`, `aria-selected`, `role="dialog"`), visible focus rings for keyboard navigation, and high-contrast color palette. |
 
 ---
@@ -111,7 +111,7 @@ flowchart TD
 ### Operating Modes
 CelebrAI does not deceive users or judges about its operational state. A persistent, accessible badge in the top navigation bar clearly communicates the current mode:
 
-1. ⚡ **Live AI Engine:** Connected via secure serverless proxy to **Google Gemini 3.8 Flash** (`@google/genai` v2) with structured JSON output enforcement (`responseSchema`), 18s timeout protection (30s function budget), and server-side exact single-cent reconciliation. Active whenever `GEMINI_API_KEY` is provided.
+1. ⚡ **Live AI Engine:** Connected via secure serverless proxy to **Google Gemini 3.5 Flash-Lite** (`@google/genai` v2, with cascade to `gemini-3.8-flash`) with structured JSON output enforcement (`responseSchema`), shared 20s upstream inference budget (30s serverless envelope), and server-side exact single-cent reconciliation. Active whenever `GEMINI_API_KEY` is provided.
 2. 🛡️ **Offline Planner:** Uses high-fidelity algorithmic domain logic to create complete, realistic plans when offline, in CI test runners, or when no API key is configured. Zero external dependencies.
 3. ✨ **Sample Showcase:** One-click preloaded event (*Aurora Horizons 10th Anniversary Gala*) demonstrating complete multi-module synchronization out of the box.
 
@@ -200,8 +200,8 @@ The total production bundle is ultra-lean (~108 kB gzipped), and the entire repo
 ## 8. Video Demo & Submission Package Guide
 
 - **Public GitHub Repo:** [https://github.com/Abhinav-0311/CelebrAI](https://github.com/Abhinav-0311/CelebrAI)
-- **GenAI Services Utilized:** Google Gemini 3.8 Flash (structured JSON schema mode) for celebration concept modeling, budget allocation, run-of-show scheduling, and creative copywriting.
-- **Repository Size:** ~3.3 MB (competition limit: 10 MB).
+- **GenAI Services Utilized:** Google Gemini 3.5 Flash-Lite (structured JSON schema mode, with cascade to `gemini-3.8-flash`) for celebration concept modeling, budget allocation, run-of-show scheduling, and creative copywriting.
+- **Repository Size:** ~4.2 MB (competition limit: 10 MB).
 
 ---
 

@@ -47,7 +47,7 @@ export const App: React.FC = () => {
             <span>PromptWars Virtual Challenge 5 (Celebration & Event Planner)</span>
           </div>
           <div className="flex items-center gap-4">
-            <span>Powered by Google Gemini 3.8 Flash & Antigravity</span>
+            <span>Powered by Google Gemini 3.5 Flash-Lite & Antigravity</span>
             <span>•</span>
             <span className="text-slate-500 font-medium">Built with WCAG 2.1 AA Accessibility Guidelines</span>
           </div>

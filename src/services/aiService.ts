@@ -51,7 +51,7 @@ export async function generateCelebrAIPlan(
           mode: json.mode === 'live_ai' ? 'live' : 'offline',
           sourceMessage:
             json.mode === 'live_ai'
-              ? `Live AI (Model: ${json.model || 'gemini-3.8-flash'})`
+              ? `Live AI (Model: ${json.model || 'gemini-3.5-flash-lite'})`
               : 'Offline Planner (Server deterministic fallback)',
         };
       } else {
