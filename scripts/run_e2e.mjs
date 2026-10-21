@@ -198,7 +198,8 @@ async function runE2ETests() {
     console.log('\n--- Journey 4: Feasible Adaptive Ripple Application ---');
     const guestInput = page.locator('#adjust-guests');
     await guestInput.fill('180');
-    await page.click('button:has-text("Recalculate")');
+    const recalcBtn = page.locator('button:has-text("Recalculate"), button:has-text("Ripple")').first();
+    await recalcBtn.click();
     await page.waitForTimeout(500);
 
     await saveScreenshot(page, 'screenshot_adaptive_applied.png');

@@ -40,9 +40,9 @@ export const NavigationTabs: React.FC = () => {
   ];
 
   return (
-    <nav className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" aria-label="Event Sections">
+    <nav className="bg-stone-50/80 dark:bg-stone-950/80 border-b border-stone-200 dark:border-stone-800 backdrop-blur-sm" aria-label="Event Sections">
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
-        <div className="flex space-x-1 sm:space-x-2 overflow-x-auto py-2 scroll-smooth" role="tablist" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="flex space-x-1 sm:space-x-1.5 overflow-x-auto py-2 scroll-smooth" role="tablist" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -54,22 +54,22 @@ export const NavigationTabs: React.FC = () => {
                 aria-controls={`panel-${tab.id}`}
                 id={`tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 min-h-[38px] rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 min-h-[38px] rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                   isActive
-                    ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 shadow-sm border border-brand-200 dark:border-brand-800'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900 shadow-xs font-semibold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-200/50 dark:hover:bg-stone-900'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`} />
+                <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-amber-400 dark:text-amber-600' : 'text-stone-400 dark:text-stone-500'}`} />
                 <span>{tab.label}</span>
                 {tab.badge !== undefined && (
                   <span
-                    className={`ml-1 px-1.5 py-0.5 text-[10px] rounded-full font-bold ${
+                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                       typeof tab.badge === 'string' && tab.badge.includes('alert')
                         ? 'bg-amber-500 text-white animate-pulse'
                         : isActive
-                        ? 'bg-brand-200 text-brand-800 dark:bg-brand-900 dark:text-brand-200'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                        ? 'bg-stone-800 text-stone-200 dark:bg-stone-200 dark:text-stone-800'
+                        : 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
                     }`}
                   >
                     {tab.badge}

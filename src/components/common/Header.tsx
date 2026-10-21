@@ -70,14 +70,14 @@ export const Header: React.FC = () => {
   const pendingRipple = currentEvent?.pendingRipples.find((r) => r.status === 'pending_review');
 
   return (
-    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-sm">
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+    <header className="bg-white dark:bg-stone-950 border-b border-stone-200 dark:border-stone-850 sticky top-0 z-40 shadow-2xs">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <CelebrAILogo />
 
           {/* Transparent System Operating Mode Badge */}
-          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300">
             {systemMode === 'live' && (
               <>
                 <span className="flex h-2 w-2 relative">
@@ -99,20 +99,20 @@ export const Header: React.FC = () => {
             )}
             {systemMode === 'sample' && (
               <>
-                <span className="inline-block w-2 h-2 rounded-full bg-indigo-500"></span>
-                <span className="text-indigo-700 dark:text-indigo-400 font-semibold flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" /> Sample Showcase
+                <span className="inline-block w-2 h-2 rounded-full bg-stone-400 dark:bg-stone-500"></span>
+                <span className="text-stone-800 dark:text-stone-200 font-semibold flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Sample Showcase
                 </span>
               </>
             )}
-            <span className="text-slate-400 dark:text-slate-500">|</span>
-            <span className="text-slate-600 dark:text-slate-300 truncate max-w-xs" title={systemMessage}>
+            <span className="text-stone-300 dark:text-stone-700">|</span>
+            <span className="text-stone-500 dark:text-stone-400 truncate max-w-xs font-sans text-xs" title={systemMessage}>
               {systemMessage}
             </span>
           </div>
 
           {/* Action Toolbar */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Adaptive Intelligence Alert Pill */}
             {pendingRipple && (
               <button
@@ -121,25 +121,25 @@ export const Header: React.FC = () => {
                   setActiveRippleAlert(pendingRipple);
                   setAdaptiveModalOpen(true);
                 }}
-                className="flex items-center gap-1 px-2 py-1.5 sm:px-3 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800 animate-pulse hover:bg-amber-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-800 animate-pulse hover:bg-amber-200 transition"
                 aria-label="Pending adaptive intelligence ripple alert"
               >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span className="hidden sm:inline">Impact Alert</span>
-                <span className="sm:hidden text-[10px]">Alert</span>
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="hidden sm:inline font-mono text-[11px] uppercase">Review Impact</span>
+                <span className="sm:hidden text-[10px] font-mono">Alert</span>
               </button>
             )}
 
             {/* Desktop-only Action Buttons */}
-            <div className="hidden sm:flex items-center gap-1.5">
+            <div className="hidden sm:flex items-center gap-1.5 font-sans">
               {/* Load Sample Event */}
               <button
                 type="button"
                 onClick={loadSampleEvent}
-                className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
                 title="Reset and load sample event"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3.5 h-3.5 text-stone-500" />
                 <span>Sample Event</span>
               </button>
 
@@ -147,11 +147,11 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
                 title="Print or export Run-of-Show PDF"
                 aria-label="Print or save as PDF"
               >
-                <Printer className="w-3.5 h-3.5" />
+                <Printer className="w-3.5 h-3.5 text-stone-500" />
                 <span className="hidden md:inline">Print</span>
               </button>
 
@@ -159,11 +159,11 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={handleExport}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
                 title="Export event data to JSON"
                 aria-label="Export event JSON"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 text-stone-500" />
                 <span className="hidden md:inline">Export</span>
               </button>
 
@@ -179,11 +179,11 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
                 title="Import event data from JSON"
                 aria-label="Import event JSON"
               >
-                <Upload className="w-3.5 h-3.5" />
+                <Upload className="w-3.5 h-3.5 text-stone-500" />
                 <span className="hidden md:inline">Import</span>
               </button>
             </div>
@@ -192,11 +192,11 @@ export const Header: React.FC = () => {
             <button
               type="button"
               onClick={handleExport}
-              className="sm:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition"
+              className="sm:hidden inline-flex items-center justify-center p-2 rounded-lg text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:bg-stone-200 transition"
               title="Export event JSON"
               aria-label="Export event JSON"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 text-stone-500" />
             </button>
 
             {/* Mobile Tools Menu Button */}
@@ -204,22 +204,22 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition"
+                className="inline-flex items-center justify-center p-2 rounded-lg text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:bg-stone-200 transition"
                 title="More event actions"
                 aria-label="More event actions"
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical className="w-4 h-4 text-stone-500" />
               </button>
 
               {isMobileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-fadeIn text-xs">
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-800 py-1.5 z-50 animate-fadeIn text-xs">
                   <button
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       fileInputRef.current?.click();
                     }}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3.5 py-2 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2 text-stone-700 dark:text-stone-300"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Import JSON</span>
@@ -227,7 +227,7 @@ export const Header: React.FC = () => {
                   <button
                     type="button"
                     onClick={handlePrint}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3.5 py-2 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2 text-stone-700 dark:text-stone-300"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     <span>Print Run-of-Show</span>
@@ -238,7 +238,7 @@ export const Header: React.FC = () => {
                       setIsMobileMenuOpen(false);
                       loadSampleEvent();
                     }}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200"
+                    className="w-full text-left px-3.5 py-2 hover:bg-stone-100 dark:hover:bg-stone-800 flex items-center gap-2 text-stone-700 dark:text-stone-300"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Reset Sample Event</span>
@@ -247,11 +247,11 @@ export const Header: React.FC = () => {
               )}
             </div>
 
-            {/* Primary Action: Plan Event Button (Always clearly visible & accessible!) */}
+            {/* Primary Action: Plan Event Button (Refined Editorial Style) */}
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
-              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-1.5 text-xs font-semibold rounded-lg text-white bg-gradient-to-r from-brand-600 to-fuchsia-600 hover:from-brand-700 hover:to-fuchsia-700 shadow-sm transition shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold rounded-lg text-stone-50 bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200 border border-stone-800 dark:border-stone-200 shadow-sm transition shrink-0"
               aria-label="Create new celebration plan"
             >
               <CalendarPlus className="w-4 h-4 shrink-0" />

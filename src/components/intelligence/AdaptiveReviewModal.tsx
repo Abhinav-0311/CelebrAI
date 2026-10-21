@@ -4,13 +4,12 @@ import {
   X, 
   ShieldAlert, 
   Lock, 
-  Users, 
   DollarSign, 
   Utensils, 
   FileText, 
   ShieldCheck,
   Building2,
-  Sparkles
+  ArrowRight
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { formatCurrency } from '../../types/event';
@@ -53,7 +52,7 @@ export const AdaptiveReviewModal: React.FC = () => {
   const isGuestChange = activeRippleAlert.triggerType === 'guest_count_change';
   const isBudgetChange = activeRippleAlert.triggerType === 'budget_change';
 
-  // Compute single-source-of-truth committed spending
+  // Single-source-of-truth committed spending check
   const finSummary = computeFinancialSummary(currentEvent.budget);
   const totalCommittedCents = Math.max(
     finSummary.totalCommittedCents,
@@ -109,32 +108,29 @@ export const AdaptiveReviewModal: React.FC = () => {
       ref={modalRef}
       tabIndex={-1}
     >
-      <div className="bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-auto text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-auto text-stone-900 dark:text-stone-100 flex flex-col max-h-[92vh]">
         
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-stone-200 dark:border-stone-800 flex items-start justify-between bg-stone-100/60 dark:bg-stone-950/40">
-          <div className="space-y-1.5">
+        <div className="p-4 sm:p-5 border-b border-stone-200 dark:border-stone-800 flex items-start justify-between bg-stone-50 dark:bg-stone-950/50">
+          <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono tracking-widest uppercase px-2 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
-                Atelier Adaptive Intelligence Alert
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold">
+                Adaptive Intelligence Alert
               </span>
               <span
                 className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold ${
                   activeRippleAlert.severity === 'high'
-                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-900'
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-900'
+                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                 }`}
               >
                 {activeRippleAlert.severity} severity
               </span>
-              <span className="text-[10px] font-mono text-stone-400">
-                Zero-Creep Reconciliation
-              </span>
             </div>
-            <h2 id="adaptive-modal-title" className="text-xl sm:text-2xl font-serif font-bold text-stone-900 dark:text-stone-100">
-              {activeRippleAlert.title}
+            <h2 id="adaptive-modal-title" className="text-lg sm:text-xl font-serif font-bold text-stone-900 dark:text-stone-100">
+              Review plan adjustments
             </h2>
-            <p className="text-xs text-stone-600 dark:text-stone-400 font-sans max-w-xl">
+            <p className="text-xs text-stone-600 dark:text-stone-400">
               {activeRippleAlert.impactSummary}
             </p>
           </div>
@@ -142,7 +138,7 @@ export const AdaptiveReviewModal: React.FC = () => {
           <button
             type="button"
             onClick={handleDismiss}
-            className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-2 rounded-lg hover:bg-stone-200/50 dark:hover:bg-stone-800 transition"
+            className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-1.5 rounded-lg hover:bg-stone-200/50 dark:hover:bg-stone-800 transition"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -150,329 +146,179 @@ export const AdaptiveReviewModal: React.FC = () => {
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-6 text-stone-800 dark:text-stone-200">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-stone-800 dark:text-stone-200">
           
           {/* Rejection Alert Banner */}
           {rejectionMessage && (
             <div
-              className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 flex items-start gap-3 text-rose-800 dark:text-rose-200 text-xs animate-shake"
+              className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 flex items-start gap-2.5 text-rose-800 dark:text-rose-200 text-xs animate-shake"
               role="alert"
             >
-              <ShieldAlert className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-bold text-sm">Modification Rejected by Atelier Invariant</p>
-                <p>{rejectionMessage}</p>
+              <ShieldAlert className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+              <div>
+                <p className="font-bold">Modification rejected</p>
+                <p className="mt-0.5">{rejectionMessage}</p>
               </div>
             </div>
           )}
 
-          {/* Infeasible Budget Warning with Actionable Alternative */}
+          {/* Infeasible Budget Warning */}
           {isInfeasibleBudget && !rejectionMessage && (
             <div
-              className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs space-y-2"
+              className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs space-y-2"
               role="status"
             >
-              <div className="flex items-center gap-2 font-bold text-sm text-amber-900 dark:text-amber-300">
-                <ShieldAlert className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>Action Locked: Infeasible Budget Reduction</span>
+              <div className="flex items-center gap-2 font-bold text-amber-900 dark:text-amber-300">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Action locked: Budget cannot be lower than committed expenses</span>
               </div>
-              <p className="leading-relaxed">
-                The proposed budget ceiling of <strong className="font-mono">{formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency)}</strong> is lower than existing committed expenditures (<strong className="font-mono">{formatCurrency(totalCommittedCents, currentEvent.budget.currency)}</strong>) by <strong className="font-mono">{formatCurrency(totalCommittedCents - Number(activeRippleAlert.newValue), currentEvent.budget.currency)}</strong>.
+              <p>
+                The proposed budget of <strong className="font-mono">{formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency)}</strong> is lower than already committed contracts (<strong className="font-mono">{formatCurrency(totalCommittedCents, currentEvent.budget.currency)}</strong>) by <strong className="font-mono">{formatCurrency(totalCommittedCents - Number(activeRippleAlert.newValue), currentEvent.budget.currency)}</strong>.
               </p>
-              <div className="pt-2 border-t border-amber-200 dark:border-amber-900/60 text-[11px] space-y-1 text-amber-900/90 dark:text-amber-300/90">
-                <p className="font-bold uppercase tracking-wider text-[10px]">Required Resolution Paths:</p>
-                <p>1. Open the <strong>Budget & Ledger</strong> tab to cancel or renegotiate committed line items before lowering total capital.</p>
-                <p>2. Set your proposed budget ceiling to at least <strong className="font-mono">{formatCurrency(totalCommittedCents, currentEvent.budget.currency)}</strong> to honor signed commitments.</p>
-              </div>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                To proceed: Cancel or reduce items in the Budget ledger first, or set budget to at least {formatCurrency(totalCommittedCents, currentEvent.budget.currency)}.
+              </p>
             </div>
           )}
 
-          {/* Side-by-Side Blueprint Comparison (Current vs Proposed) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                Comparative Blueprint Analysis
-              </span>
-              <span className="text-[11px] font-mono text-stone-400">
-                Current Baseline vs. Adaptive Recommendation
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* Card 1: Current Blueprint */}
-              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/60 space-y-3">
-                <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800/80 pb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 font-mono">
-                    Current Blueprint
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-mono">
-                    Baseline
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-stone-400" /> Attendance:
-                    </span>
-                    <span className="font-mono font-bold">{prevGuests} guests ({prevTables} tables)</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
-                      <Utensils className="w-3.5 h-3.5 text-stone-400" /> Catering Allocation:
-                    </span>
-                    <span className="font-mono font-bold">{formatCurrency(prevCateringCents, currentEvent.budget.currency)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-stone-400" /> Contingency Buffer:
-                    </span>
-                    <span className="font-mono font-bold">{formatCurrency(prevContingencyCents, currentEvent.budget.currency)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-stone-100 dark:border-stone-800">
-                    <span className="text-stone-700 dark:text-stone-300 font-semibold flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-stone-400" /> Total Capital:
-                    </span>
-                    <span className="font-mono font-bold text-stone-900 dark:text-stone-100">{formatCurrency(prevTotalBudgetCents, currentEvent.budget.currency)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Proposed Adaptive State */}
-              <div className="p-4 rounded-xl border-2 border-stone-900 dark:border-stone-100 bg-stone-100/50 dark:bg-stone-900/90 space-y-3 relative shadow-md">
-                <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-stone-900 dark:text-stone-100 font-mono flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Proposed Adaptive State
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-stone-900 text-stone-100 dark:bg-stone-100 dark:text-stone-900 font-mono font-bold">
-                    Reconciled
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-stone-500" /> Attendance:
-                    </span>
-                    <span className="font-mono font-bold text-stone-900 dark:text-stone-100">
-                      {newGuests} guests ({newTables} tables)
-                      {guestDelta !== 0 && (
-                        <span className={`ml-1 text-[11px] ${guestDelta > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                          ({guestDelta > 0 ? `+${guestDelta}` : guestDelta})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-                      <Utensils className="w-3.5 h-3.5 text-stone-500" /> Catering Allocation:
-                    </span>
-                    <span className="font-mono font-bold text-stone-900 dark:text-stone-100">
-                      {formatCurrency(proposedCateringCents, currentEvent.budget.currency)}
-                      {cateringDeltaCents !== 0 && (
-                        <span className={`ml-1 text-[11px] ${cateringDeltaCents > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                          ({cateringDeltaCents > 0 ? `+` : ''}{formatCurrency(cateringDeltaCents, currentEvent.budget.currency)})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-stone-500" /> Contingency Buffer:
-                    </span>
-                    <span className="font-mono font-bold text-stone-900 dark:text-stone-100">
-                      {formatCurrency(proposedContingencyCents, currentEvent.budget.currency)}
-                      {contingencyAbsorptionCents > 0 && (
-                        <span className="ml-1 text-[11px] text-stone-500">
-                          (-{formatCurrency(contingencyAbsorptionCents, currentEvent.budget.currency)} absorbed)
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-stone-200 dark:border-stone-800">
-                    <span className="text-stone-900 dark:text-stone-100 font-bold flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-stone-700 dark:text-stone-300" /> Total Capital:
-                    </span>
-                    <span className="font-mono font-bold text-stone-900 dark:text-stone-100">
-                      {formatCurrency(proposedTotalBudgetCents, currentEvent.budget.currency)}
-                      {budgetDeficitCents === 0 ? (
-                        <span className="ml-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-mono">0% drift</span>
-                      ) : (
-                        <span className="ml-1.5 text-[10px] text-amber-600 dark:text-amber-400 uppercase font-mono">+{formatCurrency(budgetDeficitCents, currentEvent.budget.currency)}</span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Quantitative Delta Breakdown (4-Metric Linear Strip) */}
-          <div className="space-y-2">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400">
-              Quantitative Variance Matrix
+          {/* 1. DOMINANT COMPARISON: Primary Shift (Guest or Budget) */}
+          <div className="bg-stone-50 dark:bg-stone-950/60 rounded-xl p-4 border border-stone-200 dark:border-stone-800">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 block mb-2 font-bold">
+              {isGuestChange ? 'Headcount shift' : 'Budget realignment'}
             </span>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <span className="text-xs text-stone-500 font-medium">Current plan</span>
+                <p className="text-lg sm:text-2xl font-bold font-mono text-stone-700 dark:text-stone-300">
+                  {isGuestChange ? `${prevGuests} guests` : formatCurrency(Number(activeRippleAlert.previousValue), currentEvent.budget.currency)}
+                </p>
+                <span className="text-[11px] text-stone-400 font-mono">
+                  {isGuestChange ? `${prevTables} tables` : 'Baseline budget'}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center shrink-0">
+                <ArrowRight className="w-5 h-5 text-stone-400" />
+                {guestDelta !== 0 && (
+                  <span className={`text-[11px] font-mono font-bold ${guestDelta > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {guestDelta > 0 ? `+${guestDelta}` : guestDelta}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-0.5 text-right">
+                <span className="text-xs text-stone-500 font-medium">Proposed</span>
+                <p className="text-lg sm:text-2xl font-bold font-mono text-stone-900 dark:text-stone-100">
+                  {isGuestChange ? `${newGuests} guests` : formatCurrency(Number(activeRippleAlert.newValue), currentEvent.budget.currency)}
+                </p>
+                <span className="text-[11px] text-stone-400 font-mono">
+                  {isGuestChange ? `${newTables} tables (${tableDelta >= 0 ? `+${tableDelta}` : tableDelta})` : 'Target ceiling'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CONSEQUENCES BREAKDOWN (Budget & Seating) */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 font-bold block">
+              Consequences & adjustments
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs font-sans">
               
-              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40">
-                <span className="text-[10px] uppercase text-stone-500 dark:text-stone-400 block font-sans">
-                  Headcount Shift
+              {/* Catering */}
+              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1">
+                <span className="text-stone-500 flex items-center gap-1.5 text-[11px]">
+                  <Utensils className="w-3.5 h-3.5 text-stone-400" /> Catering
                 </span>
-                <p className={`text-base font-bold mt-0.5 ${guestDelta > 0 ? 'text-amber-600 dark:text-amber-400' : guestDelta < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-700 dark:text-stone-300'}`}>
-                  {guestDelta > 0 ? `+${guestDelta}` : guestDelta} guests
+                <p className="font-mono font-bold text-sm text-stone-900 dark:text-stone-100">
+                  {formatCurrency(proposedCateringCents, currentEvent.budget.currency)}
                 </p>
-                <span className="text-[10px] text-stone-400 font-sans">
-                  Capacity: {newGuests} total
+                <span className={`text-[10.5px] font-mono ${cateringDeltaCents > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-stone-500'}`}>
+                  {cateringDeltaCents > 0 ? `+${formatCurrency(cateringDeltaCents, currentEvent.budget.currency)}` : '$0'}
                 </span>
               </div>
 
-              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40">
-                <span className="text-[10px] uppercase text-stone-500 dark:text-stone-400 block font-sans">
-                  Catering Variance
+              {/* Contingency Reserve */}
+              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1">
+                <span className="text-stone-500 flex items-center gap-1.5 text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-stone-400" /> Reserve absorption
                 </span>
-                <p className={`text-base font-bold mt-0.5 ${cateringDeltaCents > 0 ? 'text-amber-600 dark:text-amber-400' : cateringDeltaCents < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-700 dark:text-stone-300'}`}>
-                  {cateringDeltaCents > 0 ? '+' : ''}{formatCurrency(cateringDeltaCents, currentEvent.budget.currency)}
+                <p className="font-mono font-bold text-sm text-stone-900 dark:text-stone-100">
+                  {formatCurrency(proposedContingencyCents, currentEvent.budget.currency)}
                 </p>
-                <span className="text-[10px] text-stone-400 font-sans">
-                  Auto-recalculated
+                <span className="text-[10.5px] font-mono text-stone-500">
+                  {contingencyAbsorptionCents > 0 ? `-${formatCurrency(contingencyAbsorptionCents, currentEvent.budget.currency)} absorbed` : 'Untouched'}
                 </span>
               </div>
 
-              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40">
-                <span className="text-[10px] uppercase text-stone-500 dark:text-stone-400 block font-sans">
-                  Floor Seating
+              {/* Total Event Capital */}
+              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1">
+                <span className="text-stone-500 flex items-center gap-1.5 text-[11px]">
+                  <DollarSign className="w-3.5 h-3.5 text-stone-400" /> Total budget
                 </span>
-                <p className="text-base font-bold text-stone-900 dark:text-stone-100 mt-0.5">
-                  {tableDelta >= 0 ? `+${tableDelta}` : tableDelta} table{Math.abs(tableDelta) === 1 ? '' : 's'}
+                <p className="font-mono font-bold text-sm text-stone-900 dark:text-stone-100">
+                  {formatCurrency(proposedTotalBudgetCents, currentEvent.budget.currency)}
                 </p>
-                <span className="text-[10px] text-stone-400 font-sans">
-                  Round-{tableCapacity} layout
-                </span>
-              </div>
-
-              <div className="p-3 rounded-lg border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40">
-                <span className="text-[10px] uppercase text-stone-500 dark:text-stone-400 block font-sans">
-                  Contingency Buffer
-                </span>
-                <p className="text-base font-bold text-stone-900 dark:text-stone-100 mt-0.5">
-                  {contingencyAbsorptionCents > 0 ? `-${formatCurrency(contingencyAbsorptionCents, currentEvent.budget.currency)}` : '$0.00'}
-                </p>
-                <span className="text-[10px] text-stone-400 font-sans">
-                  {budgetDeficitCents === 0 ? 'Reserve absorbed' : 'Budget expanded'}
+                <span className="text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                  {budgetDeficitCents === 0 ? '0% budget drift' : `+${formatCurrency(budgetDeficitCents, currentEvent.budget.currency)}`}
                 </span>
               </div>
 
             </div>
           </div>
 
-          {/* Affected Vendor RFPs & Creative Artifacts ([Needs Review] Callouts) */}
+          {/* 3. NEEDS REVIEW: Affected partners & drafts */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                Dependent Partner Operational Review
-              </span>
-              <span className="text-[10px] font-mono text-stone-400">
-                Contract Integrity Safeguards
-              </span>
-            </div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 font-bold block">
+              Needs review
+            </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              
-              {/* Catering partner */}
-              <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-stone-900 dark:text-stone-100">
-                    <Utensils className="w-4 h-4 text-stone-500" />
-                    <span>Catering & Beverage Partner</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-900">
-                    [NEEDS REVIEW]
-                  </span>
+            <div className="p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/40 space-y-2 text-xs">
+              <div className="flex items-start gap-2.5">
+                <Utensils className="w-4 h-4 text-stone-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-stone-900 dark:text-stone-100">Catering director</span>
+                  <p className="text-stone-500 dark:text-stone-400 text-[11px]">
+                    Requires headcount update to {newGuests} guests and updated per-cover confirmation.
+                  </p>
                 </div>
-                <p className="text-stone-600 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Headcount changed to {newGuests} guests. Requires kitchen portion confirmation and updated per-cover banquet contract.
-                </p>
               </div>
 
-              {/* Venue & Floor Layout */}
-              <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-stone-900 dark:text-stone-100">
-                    <Building2 className="w-4 h-4 text-stone-500" />
-                    <span>Venue & Staging Director</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-900">
-                    [NEEDS REVIEW]
-                  </span>
+              <div className="flex items-start gap-2.5 border-t border-stone-200 dark:border-stone-800 pt-2">
+                <Building2 className="w-4 h-4 text-stone-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-stone-900 dark:text-stone-100">Venue coordinator</span>
+                  <p className="text-stone-500 dark:text-stone-400 text-[11px]">
+                    Floor plan requires {newTables} total tables ({tableDelta >= 0 ? `+${tableDelta}` : tableDelta} tables).
+                  </p>
                 </div>
-                <p className="text-stone-600 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Floor plan shift: {newTables} total tables needed ({tableDelta >= 0 ? `+${tableDelta}` : tableDelta} tables). Verify banquet hall egress & spacing.
-                </p>
               </div>
 
-              {/* Creative Stationery */}
-              <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-stone-900 dark:text-stone-100">
-                    <FileText className="w-4 h-4 text-stone-500" />
-                    <span>Creative Atelier & Stationery</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300 border border-stone-300 dark:border-stone-700">
-                    [NEEDS REVIEW]
-                  </span>
+              <div className="flex items-start gap-2.5 border-t border-stone-200 dark:border-stone-800 pt-2">
+                <FileText className="w-4 h-4 text-stone-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-stone-900 dark:text-stone-100">Invitation copy</span>
+                  <p className="text-stone-500 dark:text-stone-400 text-[11px]">
+                    RSVP counts and response threshold flagged for review.
+                  </p>
                 </div>
-                <p className="text-stone-600 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Invitation copy and seating card print quantities flagged for headcount threshold sync.
-                </p>
               </div>
-
-              {/* Capital Protection Invariant */}
-              <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950/40 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-stone-900 dark:text-stone-100">
-                    <ShieldCheck className="w-4 h-4 text-stone-500" />
-                    <span>Financial Invariant Guard</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-900">
-                    [ENFORCED]
-                  </span>
-                </div>
-                <p className="text-stone-600 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Committed liabilities of {formatCurrency(totalCommittedCents, currentEvent.budget.currency)} locked against accidental clawback.
-                </p>
-              </div>
-
             </div>
           </div>
 
-          {/* Recommended Deterministic Actions */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                Deterministic Execution Protocol
-              </span>
-              <span className="text-[10px] font-mono text-stone-400">
-                {activeRippleAlert.recommendedActions.length} planned operations
-              </span>
-            </div>
+          {/* 4. AUTOMATED UPDATES LIST */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 font-bold block">
+              Automated updates upon applying
+            </span>
 
-            <div className="space-y-2">
+            <div className="space-y-1 text-xs text-stone-600 dark:text-stone-300">
               {activeRippleAlert.recommendedActions.map((action, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-3 p-3 bg-white dark:bg-stone-950/50 rounded-xl border border-stone-200 dark:border-stone-800 text-xs text-stone-700 dark:text-stone-300"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <span className="font-sans leading-relaxed">{action.description}</span>
+                <div key={idx} className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                  <span>{action.description}</span>
                 </div>
               ))}
             </div>
@@ -480,50 +326,39 @@ export const AdaptiveReviewModal: React.FC = () => {
 
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-stone-200 dark:border-stone-800 bg-stone-100/60 dark:bg-stone-950/40 flex items-center justify-between gap-4">
-          <div className="text-[11px] font-mono text-stone-500 dark:text-stone-400 hidden sm:block">
+        {/* Modal Footer: Sticky & Reachable on Mobile */}
+        <div className="p-3.5 sm:p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/50 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="px-3.5 py-2 text-xs font-medium rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
+          >
+            Keep current plan
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={isInfeasibleBudget}
+            title={isInfeasibleBudget ? 'Cannot apply budget reduction below committed expenditure' : 'Apply recommended adjustments'}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 ${
+              isInfeasibleBudget
+                ? 'bg-stone-300 text-stone-500 dark:bg-stone-800 dark:text-stone-600 cursor-not-allowed'
+                : 'bg-stone-900 text-stone-50 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-200 shadow-sm'
+            }`}
+          >
             {isInfeasibleBudget ? (
-              <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5" /> Action blocked: committed expenses exceed target
-              </span>
+              <>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Infeasible (Locked)</span>
+              </>
             ) : (
-              <span>Calculated with zero floating-point drift</span>
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Apply Recommendations</span>
+              </>
             )}
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="px-4 py-2 text-xs font-semibold rounded-lg text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 transition"
-            >
-              Dismiss / Keep Manual
-            </button>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={isInfeasibleBudget}
-              title={isInfeasibleBudget ? 'Cannot apply budget reduction below committed expenditure' : 'Apply recommended adjustments'}
-              className={`px-5 py-2.5 text-xs font-bold font-mono uppercase tracking-wider rounded-lg transition flex items-center gap-2 ${
-                isInfeasibleBudget
-                  ? 'bg-stone-300 text-stone-500 dark:bg-stone-800 dark:text-stone-600 cursor-not-allowed border border-stone-300 dark:border-stone-700'
-                  : 'bg-stone-900 text-stone-50 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200 shadow-md'
-              }`}
-            >
-              {isInfeasibleBudget ? (
-                <>
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Infeasible (Locked)</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Apply Recommendations</span>
-                </>
-              )}
-            </button>
-          </div>
+          </button>
         </div>
 
       </div>
