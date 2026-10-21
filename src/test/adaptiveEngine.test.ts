@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeGuestCountChange, analyzeBudgetChange, applyRipplePatch } from '../services/adaptiveEngine';
+import { 
+  analyzeGuestCountChange, 
+  analyzeBudgetChange, 
+  applyRipplePatch,
+  computeAdaptivePreview 
+} from '../services/adaptiveEngine';
 import { sampleEventData } from '../services/sampleEvent';
 
 describe('Adaptive Event Intelligence Engine (Invariant Protection)', () => {
@@ -153,5 +158,40 @@ describe('Adaptive Event Intelligence Engine (Invariant Protection)', () => {
     const patched = applyRipplePatch(sampleEventData, alert!);
     expect(patched.vendors.categories.every((c) => c.needsReview)).toBe(true);
     expect(patched.vendors.categories[0].reviewReason).toContain('$50,000');
+  });
+
+  it('guarantees computeAdaptivePreview matches applyRipplePatch exactly and respects contingency commitments (P0 fix)', () => {
+    // Sample event: 150 guests, $45,000 budget, $2,250 contingency with $400 committed.
+    const contingencyBefore = sampleEventData.budget.allocations.find((a) => a.category === 'contingency')!;
+    expect(contingencyBefore.allocatedCents).toBe(225000); // $2,250.00
+    expect(contingencyBefore.actualSpentCents).toBe(40000); // $400.00 committed floor
+
+    const alert = analyzeGuestCountChange(sampleEventData, 180);
+    expect(alert).not.toBeNull();
+    expect(alert?.calculatedDiffs.cateringDeltaCents).toBe(315000); // +$3,150.00
+
+    // Compute preview
+    const preview = computeAdaptivePreview(sampleEventData, alert!);
+
+    // Run actual mutation
+    const applied = applyRipplePatch(sampleEventData, alert!);
+
+    // Contingency protection: $1,850 available absorbed, $400 committed floor protected!
+    expect(preview.availableContingencyCents).toBe(185000); // $1,850.00
+    expect(preview.contingencyAbsorptionCents).toBe(185000); // $1,850.00
+    expect(preview.budgetDeficitCents).toBe(130000); // $1,300.00 required increase
+    expect(preview.proposedTotalBudgetCents).toBe(4630000); // $46,300.00
+    expect(preview.proposedContingencyCents).toBe(40000); // $400.00 protected
+    expect(preview.proposedCateringCents).toBe(1890000); // $18,900.00 ($15,750 + $3,150)
+
+    // Strict 100% agreement between Preview and Applied state
+    expect(preview.proposedTotalBudgetCents).toBe(applied.budget.totalBudgetCents);
+    expect(preview.proposedContingencyCents).toBe(
+      applied.budget.allocations.find((a) => a.category === 'contingency')!.allocatedCents
+    );
+    expect(preview.proposedCateringCents).toBe(
+      applied.budget.allocations.find((a) => a.category === 'catering')!.allocatedCents
+    );
+    expect(preview.newGuests).toBe(applied.guestCount);
   });
 });

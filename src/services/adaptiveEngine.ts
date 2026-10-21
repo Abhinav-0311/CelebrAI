@@ -325,3 +325,109 @@ export function applyRipplePatch(
 
   return updated;
 }
+
+/**
+ * Pure Single-Source-of-Truth Preview Calculator (Phase 2.7)
+ * Guarantees 100% mathematical fidelity between the Adaptive Review Modal preview
+ * and the actual state mutated by applyRipplePatch().
+ */
+export interface AdaptivePreviewResult {
+  isGuestChange: boolean;
+  isBudgetChange: boolean;
+  prevGuests: number;
+  newGuests: number;
+  guestDelta: number;
+  prevTables: number;
+  newTables: number;
+  tableDelta: number;
+  prevCateringCents: number;
+  proposedCateringCents: number;
+  cateringDeltaCents: number;
+  prevContingencyCents: number;
+  proposedContingencyCents: number;
+  contingencyAbsorptionCents: number;
+  availableContingencyCents: number;
+  prevTotalBudgetCents: number;
+  proposedTotalBudgetCents: number;
+  budgetDeficitCents: number;
+  isFeasible: boolean;
+  infeasibilityDeficitCents: number;
+  totalCommittedCents: number;
+  patchedEvent: CelebrAIEvent;
+}
+
+export function computeAdaptivePreview(
+  event: CelebrAIEvent,
+  alert: AdaptiveRippleAlert
+): AdaptivePreviewResult {
+  const isGuestChange = alert.triggerType === 'guest_count_change';
+  const isBudgetChange = alert.triggerType === 'budget_change';
+
+  // Committed spending floor
+  const committedFromExpenses = event.budget.expenses 
+    ? event.budget.expenses.reduce((s, e) => s + e.actualCents, 0) 
+    : 0;
+  const committedFromAllocations = event.budget.allocations.reduce((s, a) => s + a.actualSpentCents, 0);
+  const totalCommittedCents = Math.max(committedFromExpenses, committedFromAllocations);
+
+  const isInfeasibleBudget = isBudgetChange && Number(alert.newValue) < totalCommittedCents;
+  const isFeasible = !isInfeasibleBudget;
+  const infeasibilityDeficitCents = isInfeasibleBudget ? totalCommittedCents - Number(alert.newValue) : 0;
+
+  // Compute patched event using the true invariant-enforced patcher
+  const patchedEvent = applyRipplePatch(event, alert);
+
+  const prevGuests = event.guestCount;
+  const newGuests = patchedEvent.guestCount;
+  const guestDelta = newGuests - prevGuests;
+
+  const tableCapacity = event.guests?.targetTableCapacity || 10;
+  const prevTables = Math.ceil(prevGuests / tableCapacity);
+  const newTables = Math.ceil(newGuests / tableCapacity);
+  const tableDelta = isGuestChange ? alert.calculatedDiffs.seatingDeltaTables : 0;
+
+  const cateringAlloc = event.budget.allocations.find((a) => a.category === 'catering');
+  const patchedCateringAlloc = patchedEvent.budget.allocations.find((a) => a.category === 'catering');
+  const prevCateringCents = cateringAlloc?.allocatedCents || 0;
+  const proposedCateringCents = patchedCateringAlloc?.allocatedCents || prevCateringCents;
+  const cateringDeltaCents = proposedCateringCents - prevCateringCents;
+
+  const contingencyAlloc = event.budget.allocations.find((a) => a.category === 'contingency');
+  const patchedContingencyAlloc = patchedEvent.budget.allocations.find((a) => a.category === 'contingency');
+  const prevContingencyCents = contingencyAlloc?.allocatedCents || 0;
+  const proposedContingencyCents = patchedContingencyAlloc?.allocatedCents || prevContingencyCents;
+  const contingencyActualSpent = contingencyAlloc?.actualSpentCents || 0;
+  const availableContingencyCents = Math.max(0, prevContingencyCents - contingencyActualSpent);
+  const contingencyAbsorptionCents = Math.max(0, prevContingencyCents - proposedContingencyCents);
+
+  const prevTotalBudgetCents = event.budget.totalBudgetCents;
+  const proposedTotalBudgetCents = isBudgetChange 
+    ? Number(alert.newValue) 
+    : patchedEvent.budget.totalBudgetCents;
+  const budgetDeficitCents = Math.max(0, proposedTotalBudgetCents - prevTotalBudgetCents);
+
+  return {
+    isGuestChange,
+    isBudgetChange,
+    prevGuests,
+    newGuests,
+    guestDelta,
+    prevTables,
+    newTables,
+    tableDelta,
+    prevCateringCents,
+    proposedCateringCents,
+    cateringDeltaCents,
+    prevContingencyCents,
+    proposedContingencyCents,
+    contingencyAbsorptionCents,
+    availableContingencyCents,
+    prevTotalBudgetCents,
+    proposedTotalBudgetCents,
+    budgetDeficitCents,
+    isFeasible,
+    infeasibilityDeficitCents,
+    totalCommittedCents,
+    patchedEvent,
+  };
+}

@@ -382,17 +382,20 @@ export const OverviewTab: React.FC = () => {
         </div>
 
         {/* Card 4: Adjust your plan */}
-        <div className="p-4 sm:p-5 space-y-2 bg-stone-50/60 dark:bg-stone-950/40">
+        <div className="p-4 sm:p-5 space-y-2.5 bg-stone-50/60 dark:bg-stone-950/40">
           <div className="flex items-center justify-between text-xs text-stone-700 dark:text-stone-300">
             <span className="font-semibold text-xs">Adjust your plan</span>
             <span className="text-[10px] text-stone-400 font-mono">Automatic ripple</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2">
             {/* Guest Input */}
-            <div className="flex-1 flex items-center bg-white dark:bg-stone-900 px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-xs shadow-2xs min-w-0">
+            <div className="flex items-center bg-white dark:bg-stone-900 px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-xs shadow-2xs">
               <label htmlFor="adjust-guests" className="sr-only">Guest Count</label>
-              <Users className="w-3 h-3 text-stone-400 mr-1.5 shrink-0" />
+              <div className="flex items-center gap-1.5 min-w-[62px] text-stone-500 dark:text-stone-400 font-medium">
+                <Users className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                <span>Guests</span>
+              </div>
               <input
                 id="adjust-guests"
                 type="number"
@@ -400,7 +403,7 @@ export const OverviewTab: React.FC = () => {
                 max="5000"
                 value={tempGuests}
                 onChange={(e) => setTempGuests(parseInt(e.target.value) || 0)}
-                className="w-full text-xs font-mono font-bold bg-transparent text-stone-900 dark:text-stone-100 focus:outline-none min-w-0"
+                className="w-full text-xs font-mono font-bold bg-transparent text-stone-900 dark:text-stone-100 focus:outline-none px-2 min-w-0"
                 title="Target guest headcount"
               />
               <button
@@ -408,23 +411,26 @@ export const OverviewTab: React.FC = () => {
                 onClick={handleApplyGuestChange}
                 disabled={tempGuests === currentEvent.guestCount}
                 aria-label="Recalculate guest adaptive ripple"
-                className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 disabled:opacity-25 hover:opacity-90 transition shrink-0 ml-1"
+                className="text-[10px] font-bold px-2.5 py-1 rounded bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 disabled:opacity-25 hover:opacity-90 transition shrink-0 ml-1 shadow-2xs"
               >
                 Ripple
               </button>
             </div>
 
             {/* Budget Input */}
-            <div className="flex-1 flex items-center bg-white dark:bg-stone-900 px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-xs shadow-2xs min-w-0">
+            <div className="flex items-center bg-white dark:bg-stone-900 px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-xs shadow-2xs">
               <label htmlFor="adjust-budget" className="sr-only">Budget</label>
-              <DollarSign className="w-3 h-3 text-stone-400 mr-1 shrink-0" />
+              <div className="flex items-center gap-1.5 min-w-[62px] text-stone-500 dark:text-stone-400 font-medium">
+                <DollarSign className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                <span>Budget</span>
+              </div>
               <input
                 id="adjust-budget"
                 type="number"
                 step="1000"
                 value={tempBudgetDollars}
                 onChange={(e) => setTempBudgetDollars(parseFloat(e.target.value) || 0)}
-                className="w-full text-xs font-mono font-bold bg-transparent text-stone-900 dark:text-stone-100 focus:outline-none min-w-0"
+                className="w-full text-xs font-mono font-bold bg-transparent text-stone-900 dark:text-stone-100 focus:outline-none px-2 min-w-0"
                 title="Total budget ceiling in USD"
               />
               <button
@@ -432,7 +438,7 @@ export const OverviewTab: React.FC = () => {
                 onClick={handleApplyBudgetChange}
                 disabled={dollarsToCents(tempBudgetDollars) === currentEvent.budget.totalBudgetCents}
                 aria-label="Recalculate capital ripple"
-                className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 disabled:opacity-25 hover:opacity-90 transition shrink-0 ml-1"
+                className="text-[10px] font-bold px-2.5 py-1 rounded bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 disabled:opacity-25 hover:opacity-90 transition shrink-0 ml-1 shadow-2xs"
               >
                 Rebalance
               </button>

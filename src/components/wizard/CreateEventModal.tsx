@@ -81,23 +81,23 @@ export const CreateEventModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-event-title"
       ref={modalRef}
       tabIndex={-1}
     >
-      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 my-8">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-6 my-8">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100 dark:border-stone-800">
           <div className="flex items-center gap-3">
             <CelebrAILogoIcon size="md" />
             <div>
-              <h2 id="create-event-title" className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <h2 id="create-event-title" className="text-xl font-serif font-bold text-stone-900 dark:text-stone-100">
                 Plan a New Celebration
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-stone-500 dark:text-stone-400">
                 Configure your celebration parameters for AI-powered generation
               </p>
             </div>
@@ -106,7 +106,7 @@ export const CreateEventModal: React.FC = () => {
             type="button"
             onClick={() => setCreateModalOpen(false)}
             disabled={isGenerating}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg disabled:opacity-50"
+            className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-1.5 rounded-lg disabled:opacity-50 transition"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -117,7 +117,7 @@ export const CreateEventModal: React.FC = () => {
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Title */}
           <div>
-            <label htmlFor="evt-title" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="evt-title" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
               Celebration Title *
             </label>
             <input
@@ -127,24 +127,24 @@ export const CreateEventModal: React.FC = () => {
               placeholder="e.g. Maya & Kieran's Sunset Garden Wedding"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 ${
-                errors.title ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
+              className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] ${
+                errors.title ? 'border-rose-500' : 'border-stone-300 dark:border-stone-700'
               }`}
             />
-            {errors.title && <p className="text-xs text-rose-500 mt-1">{errors.title}</p>}
+            {errors.title && <p className="text-xs text-rose-500 mt-1 font-mono">{errors.title}</p>}
           </div>
 
           {/* Event Type & Venue Type */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="evt-type" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="evt-type" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                 Event Category *
               </label>
               <select
                 id="evt-type"
                 value={formData.eventType}
                 onChange={(e) => setFormData({ ...formData, eventType: e.target.value as any })}
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2 text-sm rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
               >
                 <option value="wedding">Wedding Celebration</option>
                 <option value="birthday">Milestone Birthday Party</option>
@@ -158,14 +158,14 @@ export const CreateEventModal: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="venue-type" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="venue-type" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                 Venue Setting *
               </label>
               <select
                 id="venue-type"
                 value={formData.venueType}
                 onChange={(e) => setFormData({ ...formData, venueType: e.target.value as any })}
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2 text-sm rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
               >
                 <option value="indoor">Indoor Banquet Hall</option>
                 <option value="ballroom">Grand Ballroom</option>
@@ -182,7 +182,7 @@ export const CreateEventModal: React.FC = () => {
           {/* Guest Count & Total Budget */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="guest-count" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="guest-count" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                 Estimated Guests *
               </label>
               <input
@@ -192,15 +192,15 @@ export const CreateEventModal: React.FC = () => {
                 max="5000"
                 value={formData.guestCount}
                 onChange={(e) => setFormData({ ...formData, guestCount: parseInt(e.target.value) || 0 })}
-                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 ${
-                  errors.guestCount ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
+                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono ${
+                  errors.guestCount ? 'border-rose-500' : 'border-stone-300 dark:border-stone-700'
                 }`}
               />
-              {errors.guestCount && <p className="text-xs text-rose-500 mt-1">{errors.guestCount}</p>}
+              {errors.guestCount && <p className="text-xs text-rose-500 mt-1 font-mono">{errors.guestCount}</p>}
             </div>
 
             <div>
-              <label htmlFor="total-budget" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="total-budget" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                 Total Budget (USD) *
               </label>
               <input
@@ -210,18 +210,18 @@ export const CreateEventModal: React.FC = () => {
                 step="any"
                 value={formData.totalBudget}
                 onChange={(e) => setFormData({ ...formData, totalBudget: parseFloat(e.target.value) || 0 })}
-                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 ${
-                  errors.totalBudget ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
+                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono ${
+                  errors.totalBudget ? 'border-rose-500' : 'border-stone-300 dark:border-stone-700'
                 }`}
               />
-              {errors.totalBudget && <p className="text-xs text-rose-500 mt-1">{errors.totalBudget}</p>}
+              {errors.totalBudget && <p className="text-xs text-rose-500 mt-1 font-mono">{errors.totalBudget}</p>}
             </div>
           </div>
 
           {/* Date & Location */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="evt-date" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="evt-date" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                 Event Date *
               </label>
               <input
@@ -230,15 +230,15 @@ export const CreateEventModal: React.FC = () => {
                 required
                 value={formData.eventDate}
                 onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 ${
-                  errors.eventDate ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
+                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] ${
+                  errors.eventDate ? 'border-rose-500' : 'border-stone-300 dark:border-stone-700'
                 }`}
               />
-              {errors.eventDate && <p className="text-xs text-rose-500 mt-1">{errors.eventDate}</p>}
+              {errors.eventDate && <p className="text-xs text-rose-500 mt-1 font-mono">{errors.eventDate}</p>}
             </div>
 
             <div>
-              <label htmlFor="evt-location" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="evt-location" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                 City / Venue Location *
               </label>
               <input
@@ -248,17 +248,17 @@ export const CreateEventModal: React.FC = () => {
                 placeholder="e.g. Austin, TX or Chicago, IL"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 ${
-                  errors.location ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700'
+                className={`w-full px-3.5 py-2 text-sm rounded-lg border bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] ${
+                  errors.location ? 'border-rose-500' : 'border-stone-300 dark:border-stone-700'
                 }`}
               />
-              {errors.location && <p className="text-xs text-rose-500 mt-1">{errors.location}</p>}
+              {errors.location && <p className="text-xs text-rose-500 mt-1 font-mono">{errors.location}</p>}
             </div>
           </div>
 
           {/* Vibe Keywords */}
           <div>
-            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+            <span className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-2">
               Atmosphere & Vibe Tags
             </span>
             <div className="flex flex-wrap gap-2">
@@ -271,8 +271,8 @@ export const CreateEventModal: React.FC = () => {
                     onClick={() => handleVibeToggle(vibe)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition ${
                       selected
-                        ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/30'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-2xs font-semibold'
+                        : 'bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
                     }`}
                   >
                     {vibe}
@@ -284,7 +284,7 @@ export const CreateEventModal: React.FC = () => {
 
           {/* Special Notes */}
           <div>
-            <label htmlFor="evt-notes" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="evt-notes" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
               Custom Vision / Dietary / Music Notes (Optional)
             </label>
             <textarea
@@ -293,33 +293,33 @@ export const CreateEventModal: React.FC = () => {
               placeholder="e.g. Looking for candlelit ambiance, gluten-free dessert options, and an acoustic welcome set"
               value={formData.specialNotes}
               onChange={(e) => setFormData({ ...formData, specialNotes: e.target.value })}
-              className="w-full px-3.5 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2 text-sm rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
             />
           </div>
 
           {/* Submit */}
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-stone-100 dark:border-stone-800">
             <button
               type="button"
               onClick={() => setCreateModalOpen(false)}
               disabled={isGenerating}
-              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+              className="px-4 py-2 text-xs font-medium text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isGenerating}
-              className="px-6 py-2.5 text-xs font-bold rounded-lg text-white bg-gradient-to-r from-brand-600 via-fuchsia-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 shadow-md shadow-brand-500/25 transition flex items-center gap-2 disabled:opacity-60"
+              className="px-6 py-2.5 text-xs font-bold rounded-lg text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white shadow-md transition flex items-center gap-2 disabled:opacity-60"
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-[#C5A869]" />
                   <span>Generating Celebration Plan...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4 text-[#C5A869]" />
                   <span>Generate Complete Plan</span>
                 </>
               )}

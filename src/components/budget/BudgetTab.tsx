@@ -79,23 +79,23 @@ export const BudgetTab: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl p-6 border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#C5A869] font-bold">
                 Financial Architecture (Cents Precision)
               </span>
               {isOverBudget && (
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400 flex items-center gap-1">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400 flex items-center gap-1 font-mono">
                   <AlertCircle className="w-3 h-3" /> Budget Exceeded
                 </span>
               )}
             </div>
-            <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+            <h2 className="text-xl font-serif font-bold text-stone-900 dark:text-stone-100 mt-1">
               Event Budget & Expense Engine
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-stone-500 dark:text-stone-400">
               Deterministic allocation modeling with exact minor-unit reconciliation
             </p>
           </div>
@@ -103,7 +103,7 @@ export const BudgetTab: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsAddExpenseOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white shadow-sm transition self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Log Expense</span>
@@ -112,52 +112,52 @@ export const BudgetTab: React.FC = () => {
 
         {/* Quantitative Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] text-slate-500">Total Budget</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+          <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-850/60 border border-stone-200 dark:border-stone-800">
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">Total Budget</span>
+            <p className="text-lg font-bold text-stone-900 dark:text-stone-100 mt-0.5 font-mono">
               {formatCurrency(totalBudgetCents, budget.currency)}
             </p>
-            <span className="text-[10px] text-slate-400">Planned: {formatCurrency(totalAllocatedCents, budget.currency)}</span>
+            <span className="text-[10px] text-stone-400 font-mono">Planned: {formatCurrency(totalAllocatedCents, budget.currency)}</span>
           </div>
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] text-slate-500">Committed (All)</span>
-            <p className={`text-lg font-bold mt-0.5 font-mono ${isOverBudget ? 'text-rose-600' : 'text-slate-900 dark:text-slate-100'}`}>
+          <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-850/60 border border-stone-200 dark:border-stone-800">
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">Committed (All)</span>
+            <p className={`text-lg font-bold mt-0.5 font-mono ${isOverBudget ? 'text-rose-600' : 'text-stone-900 dark:text-stone-100'}`}>
               {formatCurrency(totalCommittedCents, budget.currency)}
             </p>
-            <span className="text-[10px] text-slate-400">{Math.round((totalCommittedCents / totalBudgetCents) * 100)}% of ceiling</span>
+            <span className="text-[10px] text-stone-400 font-mono">{Math.round((totalCommittedCents / totalBudgetCents) * 100)}% of ceiling</span>
           </div>
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-850/60 border border-stone-200 dark:border-stone-800">
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Paid Expenditures</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+            <p className="text-lg font-bold text-stone-900 dark:text-stone-100 mt-0.5 font-mono">
               {formatCurrency(totalPaidCents, budget.currency)}
             </p>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Settled invoices</span>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">Settled invoices</span>
           </div>
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-850/60 border border-stone-200 dark:border-stone-800">
             <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Outstanding</span>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5 font-mono">
+            <p className="text-lg font-bold text-stone-900 dark:text-stone-100 mt-0.5 font-mono">
               {formatCurrency(totalOutstandingCents, budget.currency)}
             </p>
-            <span className="text-[10px] text-amber-600 dark:text-amber-400">Pending payment</span>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">Pending payment</span>
           </div>
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 col-span-2 sm:col-span-1">
-            <span className="text-[11px] text-slate-500">Available Headroom</span>
-            <p className={`text-lg font-bold mt-0.5 font-mono ${remainingHeadroomCents >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-850/60 border border-stone-200 dark:border-stone-800 col-span-2 sm:col-span-1">
+            <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">Available Headroom</span>
+            <p className={`text-lg font-bold mt-0.5 font-mono ${remainingHeadroomCents >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
               {formatCurrency(remainingHeadroomCents, budget.currency)}
             </p>
-            <span className="text-[10px] text-slate-400">Remaining variance</span>
+            <span className="text-[10px] text-stone-400 font-mono">Remaining variance</span>
           </div>
         </div>
 
         {/* Distribution Progress Bar */}
         <div className="space-y-1.5 pt-2">
-          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex items-center justify-between text-xs text-stone-600 dark:text-stone-400">
             <span className="font-semibold flex items-center gap-1.5">
-              <PieChart className="w-3.5 h-3.5" /> Budget Utilization
+              <PieChart className="w-3.5 h-3.5 text-[#C5A869]" /> Budget Utilization
             </span>
-            <span>{Math.round((totalCommittedCents / totalBudgetCents) * 100)}% Committed</span>
+            <span className="font-mono">{Math.round((totalCommittedCents / totalBudgetCents) * 100)}% Committed</span>
           </div>
-          <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+          <div className="w-full h-3 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden flex">
             {budget.allocations.map((alloc) => {
               const widthPct = (alloc.allocatedCents / totalBudgetCents) * 100;
               return (
@@ -165,21 +165,21 @@ export const BudgetTab: React.FC = () => {
                   key={alloc.id}
                   style={{ width: `${widthPct}%` }}
                   title={`${alloc.name}: ${formatCurrency(alloc.allocatedCents, budget.currency)} (${alloc.percentage}%)`}
-                  className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-300 relative group border-r border-white/20 last:border-0"
+                  className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-300 relative group border-r border-white/20 dark:border-black/20 last:border-0"
                 >
                   <div
                     className={`w-full h-full ${
                       alloc.category === 'catering'
-                        ? 'bg-brand-500'
+                        ? 'bg-[#C5A869]'
                         : alloc.category === 'venue'
-                        ? 'bg-indigo-500'
+                        ? 'bg-stone-800 dark:bg-stone-300'
                         : alloc.category === 'entertainment'
-                        ? 'bg-amber-500'
+                        ? 'bg-amber-600'
                         : alloc.category === 'decor'
-                        ? 'bg-emerald-500'
+                        ? 'bg-emerald-700'
                         : alloc.category === 'photography'
-                        ? 'bg-rose-500'
-                        : 'bg-slate-400'
+                        ? 'bg-stone-500'
+                        : 'bg-stone-400'
                     }`}
                   />
                 </div>
@@ -191,7 +191,7 @@ export const BudgetTab: React.FC = () => {
 
       {/* Category Allocations Cards */}
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-3 font-mono">
           Category Allocation Breakdown
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -202,27 +202,27 @@ export const BudgetTab: React.FC = () => {
             return (
               <div
                 key={alloc.id}
-                className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3"
+                className="bg-white dark:bg-stone-900 rounded-xl p-4 border border-stone-200 dark:border-stone-800 shadow-sm space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 capitalize">
+                  <span className="text-xs font-bold text-stone-900 dark:text-stone-100 capitalize">
                     {alloc.name}
                   </span>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-mono">
                     {alloc.percentage}%
                   </span>
                 </div>
 
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <span className="text-[11px] text-slate-500">Allocated</span>
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono">
+                    <span className="text-[11px] text-stone-500">Allocated</span>
+                    <p className="text-sm font-bold text-stone-900 dark:text-stone-100 font-mono">
                       {formatCurrency(alloc.allocatedCents, budget.currency)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-[11px] text-slate-500">Committed</span>
-                    <p className={`text-sm font-bold font-mono ${isCategoryOver ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                    <span className="text-[11px] text-stone-500">Committed</span>
+                    <p className={`text-sm font-bold font-mono ${isCategoryOver ? 'text-rose-600' : 'text-stone-700 dark:text-stone-300'}`}>
                       {formatCurrency(alloc.actualSpentCents, budget.currency)}
                     </p>
                   </div>
@@ -230,15 +230,15 @@ export const BudgetTab: React.FC = () => {
 
                 {/* Progress bar */}
                 <div className="space-y-1">
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div className="w-full h-1.5 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        isCategoryOver ? 'bg-rose-500' : spentPct > 80 ? 'bg-amber-500' : 'bg-brand-600'
+                        isCategoryOver ? 'bg-rose-500' : spentPct > 80 ? 'bg-amber-600' : 'bg-[#C5A869]'
                       }`}
                       style={{ width: `${Math.min(100, spentPct)}%` }}
                     />
                   </div>
-                  <div className="flex justify-between text-[10px] text-slate-400">
+                  <div className="flex justify-between text-[10px] text-stone-400 font-mono">
                     <span>{spentPct}% utilized</span>
                     <span className={isCategoryOver ? 'text-rose-600 font-bold' : ''}>
                       {alloc.allocatedCents - alloc.actualSpentCents >= 0
@@ -263,27 +263,27 @@ export const BudgetTab: React.FC = () => {
       </div>
 
       {/* Expenses Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden space-y-4 p-6">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden space-y-4 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 font-serif">
               Line-Item Expenses & Commitments ({budget.expenses.length})
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-stone-500 dark:text-stone-400">
               Track vendor invoices and settled transactions
             </p>
           </div>
         </div>
 
         {budget.expenses.length === 0 ? (
-          <div className="text-center py-8 border border-dashed rounded-xl border-slate-200 dark:border-slate-800">
-            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No expenses logged yet</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Click "Log Expense" above to add your first line item.</p>
+          <div className="text-center py-8 border border-dashed rounded-xl border-stone-200 dark:border-stone-800">
+            <p className="text-xs font-semibold text-stone-600 dark:text-stone-300">No expenses logged yet</p>
+            <p className="text-[11px] text-stone-400 mt-0.5">Click "Log Expense" above to add your first line item.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold border-y border-slate-200 dark:border-slate-800">
+              <thead className="bg-stone-50 dark:bg-stone-800/60 text-stone-500 dark:text-stone-400 uppercase tracking-wider font-semibold border-y border-stone-200 dark:border-stone-800 font-mono text-[10px]">
                 <tr>
                   <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3">Expense Name</th>
@@ -294,14 +294,14 @@ export const BudgetTab: React.FC = () => {
                   <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                 {budget.expenses.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                  <tr key={item.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/30 transition">
                     <td className="py-2.5 px-3">
                       <button
                         type="button"
                         onClick={() => toggleExpensePaid(item.id)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
                           item.isPaid
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                             : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
@@ -312,26 +312,26 @@ export const BudgetTab: React.FC = () => {
                         {item.isPaid ? 'Paid' : 'Pending'}
                       </button>
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100">
+                    <td className="py-2.5 px-3 font-semibold text-stone-900 dark:text-stone-100">
                       {item.name}
                     </td>
-                    <td className="py-2.5 px-3 capitalize text-slate-600 dark:text-slate-400">
+                    <td className="py-2.5 px-3 capitalize text-stone-600 dark:text-stone-400">
                       {item.category}
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                    <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400">
                       {item.vendor || '—'}
                     </td>
-                    <td className="py-2.5 px-3 text-right text-slate-500 font-mono">
+                    <td className="py-2.5 px-3 text-right text-stone-500 font-mono">
                       {formatCurrency(item.estimatedCents, budget.currency)}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-slate-100 font-mono">
+                    <td className="py-2.5 px-3 text-right font-bold text-stone-900 dark:text-stone-100 font-mono">
                       {formatCurrency(item.actualCents, budget.currency)}
                     </td>
                     <td className="py-2.5 px-3 text-center">
                       <button
                         type="button"
                         onClick={() => deleteExpense(item.id)}
-                        className="text-slate-400 hover:text-rose-500 p-1 rounded transition"
+                        className="text-stone-400 hover:text-rose-500 p-1 rounded transition"
                         aria-label={`Delete expense ${item.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -348,18 +348,18 @@ export const BudgetTab: React.FC = () => {
       {/* Add Expense Modal */}
       {isAddExpenseOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-4">
+            <h3 className="text-base font-serif font-bold text-stone-900 dark:text-stone-100">
               Log Event Expense
             </h3>
 
             <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                   Expense Description *
                 </label>
                 <input
@@ -368,19 +368,19 @@ export const BudgetTab: React.FC = () => {
                   placeholder="e.g. Acoustic Audio Equipment Rental"
                   value={newExpenseDollars.name}
                   onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, name: e.target.value })}
-                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Category *
                   </label>
                   <select
                     value={newExpenseDollars.category}
                     onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, category: e.target.value as any })}
-                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
                   >
                     {budget.allocations.map((a) => (
                       <option key={a.id} value={a.category}>
@@ -391,7 +391,7 @@ export const BudgetTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Vendor / Payee
                   </label>
                   <input
@@ -399,14 +399,14 @@ export const BudgetTab: React.FC = () => {
                     placeholder="e.g. Sonic Sound Co"
                     value={newExpenseDollars.vendor}
                     onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, vendor: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Estimated Cost ($)
                   </label>
                   <input
@@ -414,12 +414,12 @@ export const BudgetTab: React.FC = () => {
                     min="0"
                     value={newExpenseDollars.estimated}
                     onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, estimated: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Actual Cost ($) *
                   </label>
                   <input
@@ -428,7 +428,7 @@ export const BudgetTab: React.FC = () => {
                     required
                     value={newExpenseDollars.actual}
                     onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, actual: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono"
                   />
                 </div>
               </div>
@@ -439,24 +439,24 @@ export const BudgetTab: React.FC = () => {
                   id="is-paid-chk"
                   checked={newExpenseDollars.isPaid}
                   onChange={(e) => setNewExpenseDollars({ ...newExpenseDollars, isPaid: e.target.checked })}
-                  className="rounded text-brand-600 focus:ring-brand-500"
+                  className="rounded text-stone-900 focus:ring-[#C5A869]"
                 />
-                <label htmlFor="is-paid-chk" className="text-xs text-slate-700 dark:text-slate-300">
+                <label htmlFor="is-paid-chk" className="text-xs text-stone-700 dark:text-stone-300">
                   Payment already processed / settled
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-stone-100 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => setIsAddExpenseOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm"
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 rounded-lg shadow-sm transition"
                 >
                   Save Expense
                 </button>

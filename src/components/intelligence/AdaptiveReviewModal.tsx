@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { formatCurrency } from '../../types/event';
-import { computeFinancialSummary } from '../../services/eventAnalytics';
+import { computeAdaptivePreview } from '../../services/adaptiveEngine';
 
 export const AdaptiveReviewModal: React.FC = () => {
   const {
@@ -49,43 +49,27 @@ export const AdaptiveReviewModal: React.FC = () => {
 
   if (!isAdaptiveModalOpen || !activeRippleAlert || !currentEvent) return null;
 
-  const isGuestChange = activeRippleAlert.triggerType === 'guest_count_change';
-  const isBudgetChange = activeRippleAlert.triggerType === 'budget_change';
+  // Single source of truth: shared pure preview calculation guarantees 100% agreement with applyRipplePatch()
+  const preview = computeAdaptivePreview(currentEvent, activeRippleAlert);
+  const {
+    isGuestChange,
+    prevGuests,
+    newGuests,
+    guestDelta,
+    prevTables,
+    newTables,
+    tableDelta,
+    proposedCateringCents,
+    cateringDeltaCents,
+    proposedContingencyCents,
+    contingencyAbsorptionCents,
+    proposedTotalBudgetCents,
+    budgetDeficitCents,
+    isFeasible,
+    totalCommittedCents,
+  } = preview;
 
-  // Single-source-of-truth committed spending check
-  const finSummary = computeFinancialSummary(currentEvent.budget);
-  const totalCommittedCents = Math.max(
-    finSummary.totalCommittedCents,
-    currentEvent.budget.allocations.reduce((s, a) => s + a.actualSpentCents, 0)
-  );
-
-  const isInfeasibleBudget = isBudgetChange && Number(activeRippleAlert.newValue) < totalCommittedCents;
-
-  // Guest calculations
-  const prevGuests = isGuestChange ? Number(activeRippleAlert.previousValue) : currentEvent.guestCount;
-  const newGuests = isGuestChange ? Number(activeRippleAlert.newValue) : currentEvent.guestCount;
-  const guestDelta = newGuests - prevGuests;
-  const tableCapacity = currentEvent.guests?.targetTableCapacity || 10;
-  const prevTables = Math.ceil(prevGuests / tableCapacity);
-  const newTables = Math.ceil(newGuests / tableCapacity);
-  const tableDelta = isGuestChange ? activeRippleAlert.calculatedDiffs.seatingDeltaTables : 0;
-
-  // Financial & allocation calculations
-  const cateringAlloc = currentEvent.budget.allocations.find((a) => a.category === 'catering');
-  const contingencyAlloc = currentEvent.budget.allocations.find((a) => a.category === 'contingency');
-  const prevCateringCents = cateringAlloc?.allocatedCents || 0;
-  const cateringDeltaCents = isGuestChange ? activeRippleAlert.calculatedDiffs.cateringDeltaCents : 0;
-  const proposedCateringCents = Math.max(0, prevCateringCents + cateringDeltaCents);
-
-  const prevContingencyCents = contingencyAlloc?.allocatedCents || 0;
-  const contingencyAbsorptionCents = Math.min(prevContingencyCents, Math.max(0, cateringDeltaCents));
-  const proposedContingencyCents = Math.max(0, prevContingencyCents - contingencyAbsorptionCents);
-  const budgetDeficitCents = Math.max(0, cateringDeltaCents - prevContingencyCents);
-
-  const prevTotalBudgetCents = currentEvent.budget.totalBudgetCents;
-  const proposedTotalBudgetCents = isBudgetChange 
-    ? Number(activeRippleAlert.newValue) 
-    : prevTotalBudgetCents + budgetDeficitCents;
+  const isInfeasibleBudget = !isFeasible;
 
   const handleApply = () => {
     if (isInfeasibleBudget) return;
