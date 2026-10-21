@@ -214,16 +214,32 @@ async function runE2ETests() {
     // Verify Vendors Tab reflects adaptive review flag and user-controlled headcount sync
     await page.click('#tab-vendors');
     await page.waitForTimeout(400);
+
     const vendorReviewBanner = page.locator('text=Adaptive Parameter Update').first();
-    if (await vendorReviewBanner.isVisible()) {
-      console.log('✓ Dependent vendor inquiries successfully flagged for review (no silent overwriting)');
-      const syncBtn = page.locator('button:has-text("Update to 180 Guests")');
-      if (await syncBtn.isVisible()) {
-        await syncBtn.click();
-        await page.waitForTimeout(300);
-        console.log('✓ One-click vendor RFP headcount sync to 180 guests verified');
-      }
+    if (!(await vendorReviewBanner.isVisible())) {
+      throw new Error('Mandatory Adaptive Parameter Update banner not visible in Vendors tab after guest count expansion');
     }
+    console.log('✓ Dependent vendor inquiries successfully flagged for review (no silent overwriting)');
+
+    const reviewBadge = page.locator('text=Review Required').first();
+    if (!(await reviewBadge.isVisible())) {
+      throw new Error('Expected "Review Required" badge to be visible on flagged vendor category');
+    }
+
+    const syncBtn = page.locator('button:has-text("Update to 180 Guests")').first();
+    if (!(await syncBtn.isVisible())) {
+      throw new Error('Expected "Update to 180 Guests" button to be visible on catering vendor card');
+    }
+    await syncBtn.click();
+    await page.waitForTimeout(300);
+
+    // Assert the actual inquiry draft text now contains "180 guests"
+    const inquiryDraftText = await page.locator('.whitespace-pre-line').first().innerText();
+    if (!inquiryDraftText.includes('180 guests')) {
+      throw new Error(`Expected catering RFP inquiry draft to contain "180 guests" after sync, got: ${inquiryDraftText.substring(0, 120)}...`);
+    }
+    console.log('✓ Mandatory vendor RFP headcount sync to 180 guests verified in live DOM');
+
     await page.click('#tab-overview');
     await page.waitForTimeout(300);
 
@@ -352,16 +368,58 @@ async function runE2ETests() {
     await page.click('button:has-text("Sample Event")');
     await page.waitForTimeout(500);
 
+    const resetPageText = await page.innerText('body');
+    if (!resetPageText.includes('150 Guests') && !resetPageText.includes('150')) {
+      throw new Error('Failed to reset event to sample state (150 guests)');
+    }
+    console.log('✓ Reset to sample state verified (150 guests)');
+
     // 3. Upload previously downloaded JSON using real HTML file input control
     const fileInput = page.locator('input[type="file"][accept=".json"]');
     await fileInput.setInputFiles(tempExportPath);
     await page.waitForTimeout(600);
 
-    // 4. Verify state restored in DOM
-    const pageText = await page.innerText('body');
-    if (!pageText.includes(downloadedData.title)) {
-      throw new Error(`Failed to restore event title "${downloadedData.title}" via real file upload`);
+    // 4. Verify exact restored state in DOM
+    // Overview tab: Assert restored guest count = 180
+    await page.click('#tab-overview');
+    await page.waitForTimeout(300);
+    const restoredOverview = await page.innerText('body');
+    if (!restoredOverview.includes('180 Guests') && !restoredOverview.includes('180')) {
+      throw new Error('Failed to restore guest count of 180 after JSON import');
     }
+
+    // Budget tab: Assert restored line-item expense exists
+    await page.click('#tab-budget');
+    await page.waitForTimeout(300);
+    const restoredBudget = await page.innerText('body');
+    if (!restoredBudget.includes('Artisan Grand Floral Arch')) {
+      throw new Error('Failed to restore custom line-item expense "Artisan Grand Floral Arch" after JSON import');
+    }
+
+    // Guests tab: Assert restored modified guest record "Alexander Vance-Sterling" exists
+    await page.click('#tab-guests');
+    await page.waitForTimeout(300);
+    const restoredGuests = await page.innerText('body');
+    if (!restoredGuests.includes('Alexander Vance-Sterling')) {
+      throw new Error('Failed to restore custom guest record "Alexander Vance-Sterling" after JSON import');
+    }
+
+    // 5. Page Reload Persistence Verification: State must persist across page refresh
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(400);
+    // Overview tab after reload must retain 180 guests
+    const reloadedOverview = await page.innerText('body');
+    if (!reloadedOverview.includes('180 Guests') && !reloadedOverview.includes('180')) {
+      throw new Error('Imported event parameters failed to persist after page reload');
+    }
+    // Navigate to Guests tab to verify guest directory persistence
+    await page.click('#tab-guests');
+    await page.waitForTimeout(300);
+    const reloadedGuests = await page.innerText('body');
+    if (!reloadedGuests.includes('Alexander Vance-Sterling')) {
+      throw new Error('Imported guest record failed to persist after page reload');
+    }
+    console.log('✓ Strict restoration assertions passed: 180 guests, custom expense, guest record & reload persistence verified');
 
     // Clean up temporary file
     try {

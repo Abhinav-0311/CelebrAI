@@ -554,12 +554,14 @@ export const useEventStore = create<EventStoreState>()(
               ...currentEvent.vendors,
               categories: currentEvent.vendors.categories.map((cat) => {
                 if (cat.id === categoryId) {
-                  const updatedDraft = cat.inquiryDraft.replace(/\b\d+\s+guests?\b/gi, `${newCount} guests`);
+                  const updatedDraft = cat.inquiryDraft
+                    .replace(/\b\d+\s+guests?\b/gi, `${newCount} guests`)
+                    .replace(/\b\d+\s+total\b/gi, `${newCount} guests total`);
                   return {
                     ...cat,
                     inquiryDraft: updatedDraft,
-                    needsReview: false,
-                    reviewReason: undefined,
+                    needsReview: true,
+                    reviewReason: `Headcount synced to ${newCount} guests. Verify menu tiers and dietary requirements before finalizing.`,
                   };
                 }
                 return cat;

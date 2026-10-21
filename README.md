@@ -3,11 +3,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg)](https://tailwindcss.com/)
-[![Vitest Tests](https://img.shields.io/badge/Tests-47%20Passed-success.svg)](https://vitest.dev/)
+[![Vitest Tests](https://img.shields.io/badge/Tests-48%20Passed-success.svg)](https://vitest.dev/)
 [![E2E Tests](https://img.shields.io/badge/Playwright%20E2E-9%20Journeys%20Passed-emerald.svg)](https://playwright.dev/)
 [![WCAG 2.1 AA Standards](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA%20Standards-emerald.svg)](https://www.w3.org/WAI/WCAG21/quickref/)
 [![AI Model](https://img.shields.io/badge/GenAI-Gemini%203.8%20Flash-purple.svg)](https://ai.google.dev/)
-[![Repository Size](https://img.shields.io/badge/Repo%20Size-2.6%20MB-brightgreen.svg)]()
+[![Repository Size](https://img.shields.io/badge/Repo%20Size-3.3%20MB-brightgreen.svg)]()
 
 > **Submission for Hack2skill PromptWars Virtual (`pwvirtual1`)**  
 > **Challenge:** [Challenge 5] Celebration & Event Planner  
@@ -167,7 +167,7 @@ Open `http://localhost:5173` in your browser.
 
 ### Automated Testing & Real-Browser E2E Verification
 ```bash
-# Run Vitest test suite (47 unit & integration tests)
+# Run Vitest test suite (48 unit & integration tests)
 npm test
 
 # Run test coverage report
@@ -193,7 +193,7 @@ CelebrAI includes comprehensive high-resolution visual proof across all core use
 # Compile TypeScript and build production bundle
 npm run build
 ```
-The total production bundle is ultra-lean (~108 kB gzipped), and the entire repository is ~2.6 MB with all screenshots included (well below the 10 MB competition ceiling).
+The total production bundle is ultra-lean (~108 kB gzipped), and the entire repository is ~3.3 MB with all screenshots included (well below the 10 MB competition ceiling).
 
 ---
 
@@ -201,7 +201,7 @@ The total production bundle is ultra-lean (~108 kB gzipped), and the entire repo
 
 - **Public GitHub Repo:** [https://github.com/Abhinav-0311/CelebrAI](https://github.com/Abhinav-0311/CelebrAI)
 - **GenAI Services Utilized:** Google Gemini 3.8 Flash (structured JSON schema mode) for celebration concept modeling, budget allocation, run-of-show scheduling, and creative copywriting.
-- **Repository Size:** ~2.6 MB (competition limit: 10 MB).
+- **Repository Size:** ~3.3 MB (competition limit: 10 MB).
 
 ---
 

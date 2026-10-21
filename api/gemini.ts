@@ -228,9 +228,50 @@ function validateAndNormalizeDomainPlan(
   };
 }
 
+// Server-side IP rate limiter (Sliding-window: max 20 requests per 60 seconds per IP)
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 20;
+const ipRequestHistory = new Map<string, number[]>();
+
+export function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetMs: number } {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+  const history = ipRequestHistory.get(ip) || [];
+
+  const activeHistory = history.filter((timestamp) => timestamp > windowStart);
+
+  if (activeHistory.length >= MAX_REQUESTS_PER_WINDOW) {
+    const oldest = activeHistory[0];
+    const resetMs = Math.max(0, oldest + RATE_LIMIT_WINDOW_MS - now);
+    ipRequestHistory.set(ip, activeHistory);
+    return { allowed: false, remaining: 0, resetMs };
+  }
+
+  activeHistory.push(now);
+  ipRequestHistory.set(ip, activeHistory);
+
+  if (ipRequestHistory.size > 1000) {
+    for (const [key, timestamps] of ipRequestHistory.entries()) {
+      if (timestamps.every((t) => t <= windowStart)) {
+        ipRequestHistory.delete(key);
+      }
+    }
+  }
+
+  return {
+    allowed: true,
+    remaining: MAX_REQUESTS_PER_WINDOW - activeHistory.length,
+    resetMs: RATE_LIMIT_WINDOW_MS,
+  };
+}
+
+export function resetRateLimits() {
+  ipRequestHistory.clear();
+}
+
 // Serverless route handler (Vercel Serverless Function)
 export default async function handler(req: any, res: any) {
-  // CORS & Security Headers
+  // CORS & Security Headers (Standard uncredentialed wildcard CORS)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -241,6 +282,25 @@ export default async function handler(req: any, res: any) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
+  }
+
+  // Server-Side Rate Limiter (Sliding Window IP protection)
+  const clientIp = (req.headers && req.headers['x-forwarded-for'])
+    ? String(req.headers['x-forwarded-for']).split(',')[0].trim()
+    : req.socket?.remoteAddress || '127.0.0.1';
+
+  const rateLimit = checkRateLimit(clientIp);
+  res.setHeader('X-RateLimit-Limit', String(MAX_REQUESTS_PER_WINDOW));
+  res.setHeader('X-RateLimit-Remaining', String(rateLimit.remaining));
+
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.max(1, Math.ceil(rateLimit.resetMs / 1000));
+    res.setHeader('Retry-After', String(retryAfter));
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      message: `Rate limit exceeded (${MAX_REQUESTS_PER_WINDOW} reqs/min). Please retry after ${retryAfter}s.`,
+      retryAfterSeconds: retryAfter,
+    });
   }
 
   // Enforce Payload Size Cap (25 KB)
@@ -291,11 +351,12 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with native 15s HTTP timeout
+  // Live Google Gemini 3.8 Flash Call via @google/genai SDK with native 9s HTTP timeout
+  // Function allows 30s total execution budget; 9s timeout leaves 21s safety margin for fallback
   try {
     const ai = new GoogleGenAI({
       apiKey,
-      httpOptions: { timeout: 15000 },
+      httpOptions: { timeout: 9000 },
     });
 
     const prompt = `

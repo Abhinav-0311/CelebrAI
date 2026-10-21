@@ -117,7 +117,7 @@ export const VendorsTab: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                    {cat.category === 'catering' && (
+                    {(cat.category === 'catering' || cat.category === 'venue') && (
                       <button
                         type="button"
                         onClick={() => syncVendorDraftHeadcount(cat.id, currentEvent.guestCount)}
@@ -180,9 +180,15 @@ export const VendorsTab: React.FC = () => {
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center justify-between">
                       <span>Automated Vendor RFP Inquiry Email</span>
-                      <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium lowercase">
-                        Ready to send
-                      </span>
+                      {cat.needsReview ? (
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950">
+                          Review Required
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium lowercase">
+                          Ready to send
+                        </span>
+                      )}
                     </h4>
                     <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-700 dark:text-slate-300 font-mono whitespace-pre-line leading-relaxed max-h-48 overflow-y-auto">
                       {cat.inquiryDraft}

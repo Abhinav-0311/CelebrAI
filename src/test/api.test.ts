@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import handler from '../../api/gemini';
+import { describe, it, expect, beforeEach } from 'vitest';
+import handler, { resetRateLimits } from '../../api/gemini';
 
-function createMockReqRes(method: string, body: any) {
+function createMockReqRes(method: string, body: any, headers: Record<string, string> = {}) {
   const req: any = {
     method,
     body,
+    headers: {
+      'x-forwarded-for': '127.0.0.1',
+      ...headers,
+    },
   };
 
   const res: any = {
@@ -32,6 +36,9 @@ function createMockReqRes(method: string, body: any) {
 }
 
 describe('Serverless API Proxy Security & Business Validation (/api/gemini)', () => {
+  beforeEach(() => {
+    resetRateLimits();
+  });
   it('rejects unsupported HTTP methods with 405 Method Not Allowed', async () => {
     const { req, res } = createMockReqRes('GET', {});
     await handler(req, res);
@@ -164,5 +171,41 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     // Sum matches 45,000 * 100 = 4,500,000 cents
     const total = allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
     expect(total).toBe(4500000);
+  });
+
+  it('enforces server-side sliding-window rate limiting (HTTP 429) when IP exceeds quota', async () => {
+    const validPayload = {
+      action: 'generate_full_plan',
+      eventData: {
+        title: 'Quota Test Gala',
+        eventType: 'corporate_gala',
+        guestCount: 50,
+        totalBudget: 15000,
+        currency: 'USD',
+        eventDate: '2026-11-20',
+        location: 'San Jose, CA',
+        venueType: 'indoor',
+      },
+    };
+
+    const clientHeaders = { 'x-forwarded-for': '198.51.100.42' };
+
+    // Fire 20 allowed requests
+    for (let i = 0; i < 20; i++) {
+      const { req, res } = createMockReqRes('POST', validPayload, clientHeaders);
+      await handler(req, res);
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['X-RateLimit-Limit']).toBe('20');
+    }
+
+    // 21st request from same IP must be rejected with 429 Too Many Requests
+    const { req: reqBlocked, res: resBlocked } = createMockReqRes('POST', validPayload, clientHeaders);
+    await handler(reqBlocked, resBlocked);
+
+    expect(resBlocked.statusCode).toBe(429);
+    expect(resBlocked.headers['X-RateLimit-Remaining']).toBe('0');
+    expect(resBlocked.headers['Retry-After']).toBeDefined();
+    expect(resBlocked.bodyData.error).toBe('Too Many Requests');
+    expect(resBlocked.bodyData.retryAfterSeconds).toBeGreaterThan(0);
   });
 });
