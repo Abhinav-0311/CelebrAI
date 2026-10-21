@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import handler, { resetRateLimits } from '../../api/gemini';
+import handler, {
+  resetRateLimits,
+  validateAndNormalizeDomainPlan,
+  preprocessAndNormalizeRawGeminiPlan,
+} from '../../api/gemini';
+import { AIEventPlanResponseSchema as ClientPlanSchema } from '../types/schemas';
 
 function createMockReqRes(method: string, body: any, headers: Record<string, string> = {}) {
   const req: any = {
@@ -39,6 +44,7 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
   beforeEach(() => {
     resetRateLimits();
   });
+
   it('rejects unsupported HTTP methods with 405 Method Not Allowed', async () => {
     const { req, res } = createMockReqRes('GET', {});
     await handler(req, res);
@@ -48,7 +54,6 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
   });
 
   it('rejects oversized request payloads exceeding 25 KB with 413', async () => {
-    // Construct 30 KB payload
     const largeString = 'A'.repeat(30000);
     const { req, res } = createMockReqRes('POST', { dummy: largeString });
     await handler(req, res);
@@ -106,7 +111,6 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
   });
 
   it('delivers high-fidelity offline fallback plan when GEMINI_API_KEY is unset with exact budget reconciliation', async () => {
-    // Ensure no key is set for this test
     const originalKey = process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_KEY;
 
@@ -139,7 +143,10 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     const sumCents = res.bodyData.data.allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
     expect(sumCents).toBe(2000000);
 
-    // Restore key
+    // Both server and client schema must validate the fallback plan
+    const clientValidation = ClientPlanSchema.safeParse(res.bodyData.data);
+    expect(clientValidation.success).toBe(true);
+
     if (originalKey) process.env.GEMINI_API_KEY = originalKey;
   });
 
@@ -165,10 +172,8 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     const allocations = res.bodyData.data.allocations;
     const categories = allocations.map((a: any) => a.category);
     const uniqueCategories = new Set(categories);
-    // Every category must be unique
     expect(uniqueCategories.size).toBe(categories.length);
 
-    // Sum matches 45,000 * 100 = 4,500,000 cents
     const total = allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
     expect(total).toBe(4500000);
   });
@@ -190,7 +195,6 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
 
     const clientHeaders = { 'x-forwarded-for': '198.51.100.42' };
 
-    // Fire 20 allowed requests
     for (let i = 0; i < 20; i++) {
       const { req, res } = createMockReqRes('POST', validPayload, clientHeaders);
       await handler(req, res);
@@ -198,7 +202,6 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
       expect(res.headers['X-RateLimit-Limit']).toBe('20');
     }
 
-    // 21st request from same IP must be rejected with 429 Too Many Requests
     const { req: reqBlocked, res: resBlocked } = createMockReqRes('POST', validPayload, clientHeaders);
     await handler(reqBlocked, resBlocked);
 
@@ -207,5 +210,127 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     expect(resBlocked.headers['Retry-After']).toBeDefined();
     expect(resBlocked.bodyData.error).toBe('Too Many Requests');
     expect(resBlocked.bodyData.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it('normalizes safe enum variants from AI (e.g. "Primary Accent", "Venue", "Inspirational") and satisfies client schema', () => {
+    const rawAiOutput = {
+      theme: {
+        conceptTitle: 'Golden Hour Splendor',
+        conceptDescription: 'Warm sunset tones and timeless elegance.',
+        colorPalette: [
+          { name: 'Sunset Gold', hex: '#d97706', role: 'Primary Accent' },
+          { name: 'Warm Cream', hex: '#fef3c7', role: 'Secondary' },
+          { name: 'Charcoal', hex: '#1e293b', role: 'Base' },
+        ],
+        dressCode: 'Cocktail Attire',
+        decorStyle: 'Modern Botanical',
+        ambianceLighting: 'Fairy lights and candle votives',
+      },
+      allocations: [
+        { id: '1', category: 'Venue', name: 'Ballroom Rental', percentage: 40, allocatedCents: 1600000 },
+        { id: '2', category: 'Catering', name: 'Plated Dinner', percentage: 40, allocatedCents: 1600000 },
+        { id: '3', category: 'Entertainment', name: 'Live Quartet', percentage: 20, allocatedCents: 800000 },
+      ],
+      milestones: [
+        { id: 'm1', time: '14:00', durationMinutes: 60, title: 'Load-In', category: 'Setup', assignedTo: 'Coordinator' },
+        { id: 'm2', time: '18:00', durationMinutes: 90, title: 'Banquet', category: 'Dinner', assignedTo: 'Catering' },
+        { id: 'm3', time: '20:00', durationMinutes: 45, title: 'Toasts', category: 'Speech', assignedTo: 'Host' },
+      ],
+      vendorCategories: [
+        {
+          id: 'v1',
+          category: 'Venue',
+          name: 'Venue Host',
+          recommendedBudgetCents: 1600000,
+          checklist: [{ id: 'c1', task: 'Sign contract', isCompleted: false }],
+          inquiryDraft: 'Please confirm availability.',
+        },
+        {
+          id: 'v2',
+          category: 'Florist',
+          name: 'Floral & Decor Styling',
+          recommendedBudgetCents: 800000,
+          checklist: [{ id: 'c2', task: 'Review centerpieces', isCompleted: false }],
+          inquiryDraft: 'Please provide bouquet pricing.',
+        },
+        {
+          id: 'v3',
+          category: 'Catering',
+          name: 'Banquet Service',
+          recommendedBudgetCents: 1600000,
+          checklist: [{ id: 'c3', task: 'Finalize menu', isCompleted: false }],
+          inquiryDraft: 'Please confirm per-plate costs.',
+        },
+      ],
+      creative: {
+        invitations: [
+          {
+            id: 'inv1',
+            style: 'Whimsical',
+            headline: 'Join Us for Magic!',
+            body: 'Celebrate under the stars.',
+            rsvpCallToAction: 'RSVP soon',
+            dressCodeNote: 'Cocktail',
+          },
+        ],
+        speeches: [
+          {
+            id: 'sp1',
+            speakerRole: 'Host',
+            tone: 'Inspirational',
+            estimatedDuration: '3 minutes',
+            keyHighlights: ['Welcome', 'Gratitude'],
+            content: 'Welcome to this incredible milestone!',
+          },
+        ],
+        playlistVibes: ['Mellow acoustic jazz', 'Vibrant dance floor hits'],
+        partyGames: ['Trivia'],
+      },
+    };
+
+    // 1. Test deterministic preprocessing
+    const preprocessed = preprocessAndNormalizeRawGeminiPlan(rawAiOutput);
+
+    expect(preprocessed.theme.colorPalette[0].role).toBe('accent');
+    expect(preprocessed.theme.colorPalette[1].role).toBe('secondary');
+    expect(preprocessed.theme.colorPalette[2].role).toBe('neutral');
+
+    expect(preprocessed.allocations[0].category).toBe('venue');
+    expect(preprocessed.allocations[1].category).toBe('catering');
+
+    expect(preprocessed.milestones[0].category).toBe('setup');
+    expect(preprocessed.milestones[1].category).toBe('meal');
+    expect(preprocessed.milestones[2].category).toBe('speech');
+
+    expect(preprocessed.vendorCategories[0].category).toBe('venue');
+    expect(preprocessed.vendorCategories[1].category).toBe('florist_decor');
+
+    expect(preprocessed.creative.invitations[0].style).toBe('playful');
+    expect(preprocessed.creative.speeches[0].tone).toBe('inspiring');
+
+    // 2. Test full server validation & exact 0-cent reconciliation
+    const targetBudgetCents = 4000000;
+    const validated = validateAndNormalizeDomainPlan(rawAiOutput, targetBudgetCents);
+    expect(validated).not.toBeNull();
+
+    const sumAllocations = validated!.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
+    expect(sumAllocations).toBe(targetBudgetCents);
+
+    // 3. Test that CLIENT schema accepts the normalized plan seamlessly
+    const clientValidation = ClientPlanSchema.safeParse(validated);
+    expect(clientValidation.success).toBe(true);
+  });
+
+  it('rejects corrupt AI outputs with fewer than 3 allocations or categories', () => {
+    const corruptPlan = {
+      theme: { conceptTitle: 'Incomplete', conceptDescription: '...', colorPalette: [] },
+      allocations: [{ id: '1', category: 'venue', allocatedCents: 100 }],
+      milestones: [],
+      vendorCategories: [],
+      creative: { invitations: [], speeches: [], playlistVibes: [] },
+    };
+
+    const result = validateAndNormalizeDomainPlan(corruptPlan, 100000);
+    expect(result).toBeNull();
   });
 });

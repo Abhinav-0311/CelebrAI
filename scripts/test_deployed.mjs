@@ -106,11 +106,11 @@ async function runDeployedTests() {
   console.log(`✓ Plan Generation HTTP 200 OK (${apiLatency}ms)`);
   console.log(`✓ Rate Limit Headers: Limit=${rateLimitHeader || 'edge'}, Remaining=${rateRemainingHeader || 'edge'}`);
 
-  const isLive = apiJson.mode !== 'offline_fallback';
+  const isLive = apiJson.mode === 'live_ai';
   if (isLive) {
-    console.log(`⚡ LIVE GEMINI AI ACTIVE! Upstream model generated complete structured plan in ${apiLatency}ms.`);
+    console.log(`⚡ LIVE GEMINI AI ACTIVE! Upstream model (${apiJson.model || 'Gemini'}) generated complete structured plan in ${apiLatency}ms.`);
   } else {
-    console.log(`🛡️ OFFLINE FALLBACK ACTIVE: ${apiJson.message || 'Server returned deterministic fallback plan.'}`);
+    console.log(`🛡️ OFFLINE FALLBACK ACTIVE: (mode: "${apiJson.mode}") ${apiJson.message || 'Server returned deterministic fallback plan.'}`);
   }
 
   // Validate Zero-Cent Allocation Reconciliation
@@ -174,7 +174,7 @@ async function runDeployedTests() {
   console.log('\n============================================================');
   console.log(`🎉 DEPLOYED PRODUCTION VERIFICATION PASSED WITH 100% SUCCESS!`);
   console.log(`URL: ${normalizedUrl}`);
-  console.log(`Operating Mode: ${isLive ? 'LIVE GEMINI 3.8 FLASH' : 'OFFLINE DETERMINISTIC PLANNER'}`);
+  console.log(`Operating Mode: ${isLive ? `⚡ LIVE GEMINI AI (${apiJson.model})` : '🛡️ OFFLINE DETERMINISTIC PLANNER'}`);
   console.log(`API Latency: ${apiLatency}ms`);
   console.log(`============================================================\n`);
 }

@@ -7,7 +7,45 @@ import { z } from 'zod';
 const dollarsToCents = (dollars: number): number => Math.round(dollars * 100);
 
 /**
+ * Strict Domain Enums matching client definitions in src/types/event.ts & schemas.ts
+ */
+export const PaletteRoles = ['primary', 'secondary', 'accent', 'neutral', 'highlight'] as const;
+export const BudgetCategories = [
+  'venue',
+  'catering',
+  'decor',
+  'entertainment',
+  'photography',
+  'attire',
+  'favors',
+  'contingency',
+] as const;
+export const MilestoneCategories = [
+  'setup',
+  'ceremony',
+  'reception',
+  'keynote',
+  'meal',
+  'entertainment',
+  'speech',
+  'teardown',
+] as const;
+export const MilestoneStatuses = ['pending', 'in_progress', 'completed'] as const;
+export const VendorCategories = [
+  'venue',
+  'catering',
+  'photography',
+  'entertainment',
+  'florist_decor',
+  'officiant_host',
+  'rentals',
+] as const;
+export const InvitationStyles = ['formal', 'warm', 'poetic', 'playful'] as const;
+export const SpeechTones = ['heartfelt', 'humorous', 'inspiring', 'nostalgic'] as const;
+
+/**
  * Zod Input & Output Schemas for Strict Server-Side Validation
+ * Matches src/types/schemas.ts 100%
  */
 export const EventCreationSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters').max(80),
@@ -49,115 +87,102 @@ export const GeminiAPIRequestSchema = z.object({
   options: z.record(z.any()).optional(),
 });
 
-export const AIEventPlanResponseSchema = z.object({
-  theme: z.object({
-    conceptTitle: z.string().min(1),
-    conceptDescription: z.string().min(1),
-    colorPalette: z
-      .array(
-        z.object({
-          name: z.string(),
-          hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Hex code must be #RRGGBB'),
-          role: z.enum(['primary', 'secondary', 'accent', 'neutral', 'highlight']),
-        })
-      )
-      .min(3),
-    dressCode: z.string().min(1),
-    decorStyle: z.string().min(1),
-    ambianceLighting: z.string().min(1),
-    signatureDrink: z.string().optional(),
-    centerpieceConcept: z.string().optional(),
-  }),
-  allocations: z
-    .array(
-      z.object({
-        id: z.string(),
-        category: z.enum([
-          'venue',
-          'catering',
-          'decor',
-          'entertainment',
-          'photography',
-          'attire',
-          'favors',
-          'contingency',
-        ]),
-        name: z.string(),
-        percentage: z.number().min(0).max(100),
-        allocatedCents: z.number().int().min(0),
-        actualSpentCents: z.number().int().min(0).default(0),
-      })
-    )
-    .min(3),
-  milestones: z
-    .array(
-      z.object({
-        id: z.string(),
-        time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM'),
-        durationMinutes: z.number().int().min(5),
-        title: z.string().min(1),
-        category: z.enum(['setup', 'ceremony', 'reception', 'meal', 'entertainment', 'speech', 'teardown']),
-        assignedTo: z.string().min(1),
-        notes: z.string().optional(),
-        status: z.enum(['pending', 'in_progress', 'completed']).default('pending'),
-      })
-    )
-    .min(3),
-  vendorCategories: z.array(
+export const ColorPaletteItemSchema = z.object({
+  name: z.string(),
+  hex: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Must be a valid hex color'),
+  role: z.enum(PaletteRoles),
+});
+
+export const AIEventThemeSchema = z.object({
+  conceptTitle: z.string().min(1),
+  conceptDescription: z.string().min(1),
+  colorPalette: z.array(ColorPaletteItemSchema).min(3),
+  dressCode: z.string().min(1),
+  decorStyle: z.string().min(1),
+  ambianceLighting: z.string().min(1),
+  signatureDrink: z.string().optional(),
+  centerpieceConcept: z.string().optional(),
+});
+
+export const AIBudgetAllocationSchema = z.object({
+  id: z.string(),
+  category: z.enum(BudgetCategories),
+  name: z.string(),
+  percentage: z.number().min(0).max(100),
+  allocatedCents: z.number().int().min(0),
+  actualSpentCents: z.number().int().default(0),
+});
+
+export const AITimelineMilestoneSchema = z.object({
+  id: z.string(),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Time must be HH:MM format'),
+  durationMinutes: z.number().int().positive(),
+  title: z.string().min(1),
+  category: z.enum(MilestoneCategories),
+  assignedTo: z.string().min(1),
+  notes: z.string().optional(),
+  status: z.enum(MilestoneStatuses).default('pending'),
+});
+
+export const AIVendorCategorySchema = z.object({
+  id: z.string(),
+  category: z.enum(VendorCategories),
+  name: z.string(),
+  recommendedBudgetCents: z.number().int().min(0),
+  checklist: z.array(
     z.object({
       id: z.string(),
-      category: z.enum([
-        'venue',
-        'catering',
-        'decor',
-        'entertainment',
-        'photography',
-        'attire',
-        'favors',
-        'contingency',
-      ]),
-      name: z.string(),
-      recommendedBudgetCents: z.number().int().min(0),
-      checklist: z.array(
-        z.object({
-          id: z.string(),
-          task: z.string(),
-          isCompleted: z.boolean().default(false),
-        })
-      ),
-      inquiryDraft: z.string().min(1),
+      task: z.string(),
+      isCompleted: z.boolean().default(false),
     })
   ),
-  creative: z.object({
-    invitations: z.array(
-      z.object({
-        id: z.string(),
-        style: z.enum(['formal', 'warm', 'whimsical', 'modern']),
-        headline: z.string(),
-        body: z.string(),
-        rsvpCallToAction: z.string(),
-        dressCodeNote: z.string(),
-      })
-    ),
-    speeches: z.array(
-      z.object({
-        id: z.string(),
-        speakerRole: z.string(),
-        tone: z.enum(['heartfelt', 'humorous', 'inspirational', 'formal']),
-        estimatedDuration: z.string(),
-        keyHighlights: z.array(z.string()),
-        content: z.string(),
-      })
-    ),
-    playlistVibes: z.array(z.string()),
-    partyGames: z.array(z.string()).optional(),
-  }),
+  inquiryDraft: z.string().min(1),
+  needsReview: z.boolean().optional(),
+  reviewReason: z.string().optional(),
+});
+
+export const AICreativeSuiteSchema = z.object({
+  invitations: z.array(
+    z.object({
+      id: z.string(),
+      style: z.enum(InvitationStyles),
+      headline: z.string(),
+      body: z.string(),
+      rsvpCallToAction: z.string(),
+      dressCodeNote: z.string(),
+      needsReview: z.boolean().optional(),
+      reviewReason: z.string().optional(),
+    })
+  ),
+  speeches: z.array(
+    z.object({
+      id: z.string(),
+      speakerRole: z.string(),
+      tone: z.enum(SpeechTones),
+      estimatedDuration: z.string(),
+      keyHighlights: z.array(z.string()),
+      content: z.string(),
+    })
+  ),
+  playlistVibes: z.array(z.string()),
+  partyGames: z.array(z.string()).default([]),
+});
+
+export const AIEventPlanResponseSchema = z.object({
+  theme: AIEventThemeSchema,
+  allocations: z.array(AIBudgetAllocationSchema),
+  milestones: z.array(AITimelineMilestoneSchema),
+  vendorCategories: z.array(AIVendorCategorySchema),
+  creative: AICreativeSuiteSchema,
 });
 
 export type AIEventPlanResponse = z.infer<typeof AIEventPlanResponseSchema>;
 
-// Strict machine-readable response schema for gemini-3.8-flash structured output
-const planResponseSchema = {
+/**
+ * Strict Machine-Readable Response Schema for Google Gemini Structured Output
+ * Constrains generation at the token level via explicit enum lists
+ */
+export const planResponseSchema = {
   type: Type.OBJECT,
   properties: {
     theme: {
@@ -172,7 +197,10 @@ const planResponseSchema = {
             properties: {
               name: { type: Type.STRING },
               hex: { type: Type.STRING },
-              role: { type: Type.STRING },
+              role: {
+                type: Type.STRING,
+                enum: ['primary', 'secondary', 'accent', 'neutral', 'highlight'],
+              },
             },
             required: ['name', 'hex', 'role'],
           },
@@ -191,7 +219,10 @@ const planResponseSchema = {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
-          category: { type: Type.STRING },
+          category: {
+            type: Type.STRING,
+            enum: ['venue', 'catering', 'decor', 'entertainment', 'photography', 'attire', 'favors', 'contingency'],
+          },
           name: { type: Type.STRING },
           percentage: { type: Type.NUMBER },
           allocatedCents: { type: Type.INTEGER },
@@ -209,10 +240,16 @@ const planResponseSchema = {
           time: { type: Type.STRING },
           durationMinutes: { type: Type.INTEGER },
           title: { type: Type.STRING },
-          category: { type: Type.STRING },
+          category: {
+            type: Type.STRING,
+            enum: ['setup', 'ceremony', 'reception', 'keynote', 'meal', 'entertainment', 'speech', 'teardown'],
+          },
           assignedTo: { type: Type.STRING },
           notes: { type: Type.STRING },
-          status: { type: Type.STRING },
+          status: {
+            type: Type.STRING,
+            enum: ['pending', 'in_progress', 'completed'],
+          },
         },
         required: ['id', 'time', 'durationMinutes', 'title', 'category', 'assignedTo'],
       },
@@ -223,7 +260,10 @@ const planResponseSchema = {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
-          category: { type: Type.STRING },
+          category: {
+            type: Type.STRING,
+            enum: ['venue', 'catering', 'photography', 'entertainment', 'florist_decor', 'officiant_host', 'rentals'],
+          },
           name: { type: Type.STRING },
           recommendedBudgetCents: { type: Type.INTEGER },
           checklist: {
@@ -252,7 +292,10 @@ const planResponseSchema = {
             type: Type.OBJECT,
             properties: {
               id: { type: Type.STRING },
-              style: { type: Type.STRING },
+              style: {
+                type: Type.STRING,
+                enum: ['formal', 'warm', 'poetic', 'playful'],
+              },
               headline: { type: Type.STRING },
               body: { type: Type.STRING },
               rsvpCallToAction: { type: Type.STRING },
@@ -268,7 +311,10 @@ const planResponseSchema = {
             properties: {
               id: { type: Type.STRING },
               speakerRole: { type: Type.STRING },
-              tone: { type: Type.STRING },
+              tone: {
+                type: Type.STRING,
+                enum: ['heartfelt', 'humorous', 'inspiring', 'nostalgic'],
+              },
               estimatedDuration: { type: Type.STRING },
               keyHighlights: { type: Type.ARRAY, items: { type: Type.STRING } },
               content: { type: Type.STRING },
@@ -284,6 +330,243 @@ const planResponseSchema = {
   },
   required: ['theme', 'allocations', 'milestones', 'vendorCategories', 'creative'],
 };
+
+/**
+ * Deterministic Normalization Mappings for Safe Enum Harmonization
+ */
+const ROLE_MAP: Record<string, typeof PaletteRoles[number]> = {
+  primary: 'primary',
+  'primary accent': 'accent',
+  main: 'primary',
+  secondary: 'secondary',
+  accent: 'accent',
+  neutral: 'neutral',
+  base: 'neutral',
+  highlight: 'highlight',
+};
+
+const ALLOC_CATEGORY_MAP: Record<string, typeof BudgetCategories[number]> = {
+  venue: 'venue',
+  location: 'venue',
+  catering: 'catering',
+  food: 'catering',
+  beverage: 'catering',
+  food_and_beverage: 'catering',
+  decor: 'decor',
+  decoration: 'decor',
+  florals: 'decor',
+  entertainment: 'entertainment',
+  music: 'entertainment',
+  av: 'entertainment',
+  photography: 'photography',
+  photo: 'photography',
+  videography: 'photography',
+  attire: 'attire',
+  apparel: 'attire',
+  favors: 'favors',
+  gifts: 'favors',
+  contingency: 'contingency',
+  emergency: 'contingency',
+  reserve: 'contingency',
+};
+
+const MILESTONE_CATEGORY_MAP: Record<string, typeof MilestoneCategories[number]> = {
+  setup: 'setup',
+  load_in: 'setup',
+  ceremony: 'ceremony',
+  reception: 'reception',
+  keynote: 'keynote',
+  meal: 'meal',
+  dinner: 'meal',
+  lunch: 'meal',
+  entertainment: 'entertainment',
+  party: 'entertainment',
+  dance: 'entertainment',
+  speech: 'speech',
+  toast: 'speech',
+  teardown: 'teardown',
+  load_out: 'teardown',
+};
+
+const VENDOR_CATEGORY_MAP: Record<string, typeof VendorCategories[number]> = {
+  venue: 'venue',
+  catering: 'catering',
+  photography: 'photography',
+  photo: 'photography',
+  entertainment: 'entertainment',
+  florist_decor: 'florist_decor',
+  decor: 'florist_decor',
+  florist: 'florist_decor',
+  flowers: 'florist_decor',
+  officiant_host: 'officiant_host',
+  officiant: 'officiant_host',
+  host: 'officiant_host',
+  mc: 'officiant_host',
+  rentals: 'rentals',
+  rental: 'rentals',
+};
+
+const INVITATION_STYLE_MAP: Record<string, typeof InvitationStyles[number]> = {
+  formal: 'formal',
+  elegant: 'formal',
+  classic: 'formal',
+  warm: 'warm',
+  casual: 'warm',
+  friendly: 'warm',
+  poetic: 'poetic',
+  romantic: 'poetic',
+  artistic: 'poetic',
+  playful: 'playful',
+  fun: 'playful',
+  whimsical: 'playful',
+  modern: 'formal',
+};
+
+const SPEECH_TONE_MAP: Record<string, typeof SpeechTones[number]> = {
+  heartfelt: 'heartfelt',
+  emotional: 'heartfelt',
+  sincere: 'heartfelt',
+  humorous: 'humorous',
+  funny: 'humorous',
+  witty: 'humorous',
+  inspiring: 'inspiring',
+  inspirational: 'inspiring',
+  motivational: 'inspiring',
+  nostalgic: 'nostalgic',
+  reflective: 'nostalgic',
+  formal: 'inspiring',
+};
+
+/**
+ * Preprocesses raw AI JSON and deterministically harmonizes safe enum variants
+ */
+export function preprocessAndNormalizeRawGeminiPlan(raw: any): any {
+  if (!raw || typeof raw !== 'object') return raw;
+
+  const plan = JSON.parse(JSON.stringify(raw));
+
+  // 1. Normalize Theme & Palette
+  if (plan.theme && Array.isArray(plan.theme.colorPalette)) {
+    plan.theme.colorPalette = plan.theme.colorPalette.map((cp: any) => {
+      const rawRole = String(cp?.role || '').toLowerCase().trim();
+      const role = ROLE_MAP[rawRole] || (PaletteRoles.includes(rawRole as any) ? rawRole : 'accent');
+
+      let hex = String(cp?.hex || '').trim();
+      if (!hex.startsWith('#')) hex = `#${hex}`;
+      if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+        hex = '#6366f1';
+      }
+
+      return {
+        ...cp,
+        role,
+        hex,
+      };
+    });
+  }
+
+  // 2. Normalize Allocations
+  if (Array.isArray(plan.allocations)) {
+    plan.allocations = plan.allocations.map((alloc: any, idx: number) => {
+      const rawCat = String(alloc?.category || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+      const category = ALLOC_CATEGORY_MAP[rawCat] || (BudgetCategories.includes(rawCat as any) ? rawCat : 'contingency');
+
+      return {
+        ...alloc,
+        id: alloc?.id || `alloc-${idx + 1}`,
+        category,
+        allocatedCents: Math.round(Number(alloc?.allocatedCents) || 0),
+        actualSpentCents: Math.round(Number(alloc?.actualSpentCents) || 0),
+      };
+    });
+  }
+
+  // 3. Normalize Milestones
+  if (Array.isArray(plan.milestones)) {
+    plan.milestones = plan.milestones.map((ms: any, idx: number) => {
+      const rawCat = String(ms?.category || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+      const category = MILESTONE_CATEGORY_MAP[rawCat] || (MilestoneCategories.includes(rawCat as any) ? rawCat : 'entertainment');
+
+      const rawStatus = String(ms?.status || 'pending').toLowerCase().trim();
+      const status = MilestoneStatuses.includes(rawStatus as any) ? rawStatus : 'pending';
+
+      let time = String(ms?.time || '18:00').trim();
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+        const match = time.match(/(\d{1,2}):(\d{2})/);
+        if (match) {
+          const h = match[1].padStart(2, '0');
+          const m = match[2];
+          time = `${h}:${m}`;
+        } else {
+          time = '18:00';
+        }
+      }
+
+      return {
+        ...ms,
+        id: ms?.id || `ms-${idx + 1}`,
+        time,
+        category,
+        status,
+        durationMinutes: Math.max(5, Math.round(Number(ms?.durationMinutes) || 30)),
+      };
+    });
+  }
+
+  // 4. Normalize Vendor Categories
+  if (Array.isArray(plan.vendorCategories)) {
+    plan.vendorCategories = plan.vendorCategories.map((vc: any, idx: number) => {
+      const rawCat = String(vc?.category || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+      const category = VENDOR_CATEGORY_MAP[rawCat] || (VendorCategories.includes(rawCat as any) ? rawCat : 'venue');
+
+      return {
+        ...vc,
+        id: vc?.id || `vc-${idx + 1}`,
+        category,
+        recommendedBudgetCents: Math.max(0, Math.round(Number(vc?.recommendedBudgetCents) || 0)),
+        checklist: Array.isArray(vc?.checklist) ? vc.checklist : [],
+        inquiryDraft: String(vc?.inquiryDraft || 'Please provide information and availability.'),
+      };
+    });
+  }
+
+  // 5. Normalize Creative
+  if (plan.creative && typeof plan.creative === 'object') {
+    if (Array.isArray(plan.creative.invitations)) {
+      plan.creative.invitations = plan.creative.invitations.map((inv: any, idx: number) => {
+        const rawStyle = String(inv?.style || '').toLowerCase().trim();
+        const style = INVITATION_STYLE_MAP[rawStyle] || (InvitationStyles.includes(rawStyle as any) ? rawStyle : 'formal');
+        return {
+          ...inv,
+          id: inv?.id || `inv-${idx + 1}`,
+          style,
+        };
+      });
+    }
+
+    if (Array.isArray(plan.creative.speeches)) {
+      plan.creative.speeches = plan.creative.speeches.map((sp: any, idx: number) => {
+        const rawTone = String(sp?.tone || '').toLowerCase().trim();
+        const tone = SPEECH_TONE_MAP[rawTone] || (SpeechTones.includes(rawTone as any) ? rawTone : 'heartfelt');
+        return {
+          ...sp,
+          id: sp?.id || `sp-${idx + 1}`,
+          tone,
+          keyHighlights: Array.isArray(sp?.keyHighlights) ? sp.keyHighlights : [],
+        };
+      });
+    }
+
+    if (!Array.isArray(plan.creative.playlistVibes)) {
+      plan.creative.playlistVibes = ['Celebration ambiance and memorable tunes'];
+    }
+    if (!Array.isArray(plan.creative.partyGames)) {
+      plan.creative.partyGames = [];
+    }
+  }
+
+  return plan;
+}
 
 /**
  * Largest-Remainder Method: Distributes total cents across percentage categories.
@@ -631,13 +914,16 @@ export function generateDeterministicPlan(input: EventCreationInput): AIEventPla
  * Server-Side Domain Business Rule Validation & Allocation Normalization
  * Reconciles financial totals with zero-cent drift and ensures structural integrity.
  */
-function validateAndNormalizeDomainPlan(
+export function validateAndNormalizeDomainPlan(
   planData: any,
   targetBudgetCents: number
 ): AIEventPlanResponse | null {
   if (!planData) return null;
 
-  const schemaResult = AIEventPlanResponseSchema.safeParse(planData);
+  // Preprocess & deterministically harmonize safe enum variants
+  const preprocessed = preprocessAndNormalizeRawGeminiPlan(planData);
+
+  const schemaResult = AIEventPlanResponseSchema.safeParse(preprocessed);
   if (!schemaResult.success) {
     console.warn('AI Output failed Zod schema validation:', schemaResult.error.issues);
     return null;
@@ -838,11 +1124,11 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // Resilient Multi-Tier Gemini Model Cascade:
-  // Tries primary model (gemini-3.8-flash) and falls back to high-availability tiers
-  // (gemini-3.5-flash-lite, gemini-2.5-flash) if Google returns 503 High Demand / UNAVAILABLE.
+  // Multi-Tier Gemini Model Cascade:
+  // Primary: gemini-3.8-flash (Reasoning flagship)
+  // Fallback: gemini-3.5-flash-lite (High-availability failover on 503)
   const requestedModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-  const candidateModels = Array.from(new Set([requestedModel, 'gemini-3.5-flash-lite', 'gemini-2.5-flash']));
+  const candidateModels = Array.from(new Set([requestedModel, 'gemini-3.5-flash-lite']));
 
   const prompt = `
 You are the AI engine of CelebrAI, a world-class celebration planning platform.
@@ -858,11 +1144,11 @@ Generate a cohesive, complete, and financially reconciled celebration plan based
 - Vibe / Aesthetic: ${validatedEvent.vibeKeywords.join(', ')}
 ${validatedEvent.specialNotes ? `- Notes: ${validatedEvent.specialNotes}` : ''}
 
-CRITICAL BUSINESS CONSTRAINTS:
-1. Allocations: Exactly divide the total budget (${targetBudgetCents} cents). Ensure categories like venue, catering, decor, entertainment, photography, and contingency sum to ${targetBudgetCents} cents.
-2. Milestones: Chronological run-of-show with realistic times and durations covering load-in to teardown.
-3. Vendor Categories: Pragmatic checklists and polite, comprehensive RFP inquiries reflecting the guest count and venue.
-4. Creative: Tailored invitations (formal & warm), an authentic speech, evocative music vibes, and interactive party games.
+CRITICAL BUSINESS & SCHEMA CONSTRAINTS:
+1. Allocations: Exactly divide the total budget (${targetBudgetCents} cents). Ensure categories like venue, catering, decor, entertainment, photography, and contingency sum to ${targetBudgetCents} cents. Categories must be one of: venue, catering, decor, entertainment, photography, attire, favors, contingency.
+2. Milestones: Chronological run-of-show with realistic times and durations covering load-in to teardown. Categories must be one of: setup, ceremony, reception, keynote, meal, entertainment, speech, teardown.
+3. Vendor Categories: Pragmatic checklists and polite, comprehensive RFP inquiries reflecting the guest count and venue. Categories must be one of: venue, catering, photography, entertainment, florist_decor, officiant_host, rentals.
+4. Creative: Tailored invitations (styles: formal, warm, poetic, playful), authentic speech (tones: heartfelt, humorous, inspiring, nostalgic), evocative music vibes, and interactive party games.
 `;
 
   let lastError: any = null;
@@ -871,7 +1157,7 @@ CRITICAL BUSINESS CONSTRAINTS:
     try {
       const ai = new GoogleGenAI({
         apiKey,
-        httpOptions: { timeout: 10000 },
+        httpOptions: { timeout: 11000 },
       });
 
       const response = await ai.models.generateContent({
@@ -897,9 +1183,10 @@ CRITICAL BUSINESS CONSTRAINTS:
         continue;
       }
 
+      // Explicit Contract: mode is "live_ai" on successful model generation
       return res.status(200).json({
         success: true,
-        mode: 'live',
+        mode: 'live_ai',
         model: modelName,
         data: normalizedPlan,
       });
