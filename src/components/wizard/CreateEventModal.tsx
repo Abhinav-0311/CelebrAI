@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, Loader2 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { EventCreationSchema, EventCreationInput } from '../../types/schemas';
+import { CelebrAILogoIcon } from '../common/CelebrAILogo';
 
 const VIBE_OPTIONS = [
   'Elegant',
@@ -91,9 +92,7 @@ export const CreateEventModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-fuchsia-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
-              <Sparkles className="w-5 h-5" />
-            </div>
+            <CelebrAILogoIcon size="md" />
             <div>
               <h2 id="create-event-title" className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 Plan a New Celebration

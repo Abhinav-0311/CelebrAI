@@ -12,6 +12,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
+import { CelebrAILogo } from './CelebrAILogo';
 
 export const Header: React.FC = () => {
   const {
@@ -73,24 +74,7 @@ export const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-fuchsia-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20 shrink-0">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-brand-700 via-fuchsia-600 to-indigo-600 bg-clip-text text-transparent">
-                  CelebrAI
-                </span>
-                <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300 hidden sm:inline-block">
-                  v1.0
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block">
-                Intelligent Celebration & Event Architect
-              </p>
-            </div>
-          </div>
+          <CelebrAILogo />
 
           {/* Transparent System Operating Mode Badge */}
           <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700">

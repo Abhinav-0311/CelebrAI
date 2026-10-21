@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useEventStore } from '../../store/eventStore';
 import { formatCurrency, dollarsToCents, centsToDollars } from '../../types/event';
+import { CelebrAILogoIcon } from '../common/CelebrAILogo';
 
 export const OverviewTab: React.FC = () => {
   const { currentEvent, updateGuestCount, updateTotalBudgetCents, setActiveTab } = useEventStore();
@@ -248,9 +249,7 @@ export const OverviewTab: React.FC = () => {
       {/* Concept & Theme Showcase */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="p-2.5 rounded-xl bg-brand-50 dark:bg-brand-950 text-brand-600 dark:text-brand-400">
-            <Sparkles className="w-5 h-5" />
-          </div>
+          <CelebrAILogoIcon size="sm" className="w-8 h-8 rounded-lg shadow-sm" />
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
               Celebration Concept Architecture

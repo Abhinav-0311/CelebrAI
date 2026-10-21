@@ -10,6 +10,7 @@ import { VendorsTab } from './components/vendors/VendorsTab';
 import { IntelligenceTab } from './components/intelligence/IntelligenceTab';
 import { CreateEventModal } from './components/wizard/CreateEventModal';
 import { AdaptiveReviewModal } from './components/intelligence/AdaptiveReviewModal';
+import { CelebrAILogoIcon } from './components/common/CelebrAILogo';
 import { useEventStore } from './store/eventStore';
 
 export const App: React.FC = () => {
@@ -41,8 +42,9 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-700 dark:text-slate-300">CelebrAI</span>
+          <div className="flex items-center gap-2.5">
+            <CelebrAILogoIcon size="sm" className="w-5 h-5 rounded-md" />
+            <span className="font-bold text-slate-800 dark:text-slate-200">CelebrAI</span>
             <span>•</span>
             <span>PromptWars Virtual Challenge 5 (Celebration & Event Planner)</span>
           </div>
