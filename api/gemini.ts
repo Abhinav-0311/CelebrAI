@@ -1125,13 +1125,15 @@ export default async function handler(req: any, res: any) {
   }
 
   // Multi-Tier Gemini Model Cascade:
-  // Primary: gemini-3.5-flash-lite (Ultra-fast, verified active on this account)
+  // Primary: gemini-3.5-flash-lite (Ultra-fast, proven active on this account)
   // Failover: gemini-3.8-flash (Reasoning flagship)
-  const defaultCandidates = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
-  const requestedModel = process.env.GEMINI_MODEL;
-  const candidateModels = requestedModel
-    ? Array.from(new Set([requestedModel, ...defaultCandidates]))
-    : defaultCandidates;
+  const candidateModels = ['gemini-3.5-flash-lite'];
+  if (process.env.GEMINI_MODEL && !candidateModels.includes(process.env.GEMINI_MODEL)) {
+    candidateModels.push(process.env.GEMINI_MODEL);
+  }
+  if (!candidateModels.includes('gemini-3.8-flash')) {
+    candidateModels.push('gemini-3.8-flash');
+  }
 
   const prompt = `
 You are the AI engine of CelebrAI, a world-class celebration planning platform.
@@ -1155,12 +1157,18 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
 `;
 
   let lastError: any = null;
+  const candidateDiagnostics: Array<{
+    model: string;
+    durationMs: number;
+    error?: string;
+  }> = [];
 
   for (const modelName of candidateModels) {
+    const startTime = Date.now();
     try {
       const ai = new GoogleGenAI({
         apiKey,
-        httpOptions: { timeout: 14000 },
+        httpOptions: { timeout: 10000 },
       });
 
       const response = await ai.models.generateContent({
@@ -1171,9 +1179,6 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
           responseSchema: planResponseSchema,
           temperature: 0.7,
           maxOutputTokens: 2048,
-          thinkingConfig: {
-            thinkingBudget: 0,
-          },
         },
       });
 
@@ -1186,7 +1191,13 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
       const normalizedPlan = validateAndNormalizeDomainPlan(parsedJson, targetBudgetCents);
 
       if (!normalizedPlan) {
-        console.warn(`Live Gemini candidate '${modelName}' output failed validation; trying next candidate.`);
+        const valIssue = `Plan normalization rejected raw AI JSON for ${modelName}`;
+        console.warn(valIssue);
+        candidateDiagnostics.push({
+          model: modelName,
+          durationMs: Date.now() - startTime,
+          error: valIssue,
+        });
         continue;
       }
 
@@ -1199,7 +1210,13 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
       });
     } catch (err: any) {
       lastError = err;
-      console.warn(`Gemini API candidate '${modelName}' failed:`, err.message || err);
+      const errMsg = err?.message || String(err);
+      console.warn(`Gemini API candidate '${modelName}' failed:`, errMsg);
+      candidateDiagnostics.push({
+        model: modelName,
+        durationMs: Date.now() - startTime,
+        error: errMsg,
+      });
       // Continue to next candidate model if 503 or transient failure
     }
   }
@@ -1211,6 +1228,10 @@ CRITICAL BUSINESS & SCHEMA CONSTRAINTS (CONCISE & IMPACTFUL FOR FAST INFERENCE):
     success: true,
     mode: 'offline_fallback',
     message: 'Gemini request timed out or encountered upstream high demand; fallback plan generated.',
+    diagnostics: {
+      candidateDiagnostics,
+      lastError: lastError?.message || String(lastError),
+    },
     data: fallbackPlan,
   });
 }

@@ -111,6 +111,9 @@ async function runDeployedTests() {
     console.log(`⚡ LIVE GEMINI AI ACTIVE! Upstream model (${apiJson.model || 'Gemini'}) generated complete structured plan in ${apiLatency}ms.`);
   } else {
     console.log(`🛡️ OFFLINE FALLBACK ACTIVE: (mode: "${apiJson.mode}") ${apiJson.message || 'Server returned deterministic fallback plan.'}`);
+    if (apiJson.diagnostics) {
+      console.log(`🔍 Diagnostics:`, JSON.stringify(apiJson.diagnostics, null, 2));
+    }
   }
 
   // Validate Zero-Cent Allocation Reconciliation
