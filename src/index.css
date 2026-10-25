@@ -1,0 +1,103 @@
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/Manrope-Variable.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/Outfit-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 182 64 32;
+  }
+
+  body { @apply font-sans text-base antialiased; }
+  h1 { @apply font-display; }
+  h2, h3 { @apply font-sans; }
+
+  /* High contrast focus ring for keyboard accessibility (WCAG 2.1 AA) */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-brand-700 dark:ring-brand-200 ring-offset-2 ring-offset-white dark:ring-offset-slate-900;
+  }
+}
+
+@layer components {
+  .page-title { @apply font-display text-2xl font-medium tracking-[-0.035em] sm:text-3xl; }
+  .section-title { @apply font-sans text-lg font-semibold tracking-[-0.015em]; }
+  .field-label { @apply mb-2 block text-sm font-medium text-stone-700 dark:text-stone-300; }
+  .text-caption { @apply text-xs font-medium leading-[1.125rem] text-stone-500; }
+}
+
+/* Custom smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print Styles for PDF / Print-friendly Run-of-Show and Budget */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .no-print,
+  nav,
+  header,
+  button,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl {
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+}
+
+html { scroll-padding-top: 8rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
