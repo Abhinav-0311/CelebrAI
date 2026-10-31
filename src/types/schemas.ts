@@ -208,8 +208,8 @@ export const CelebrAIEventSchema = z.object({
 // API request schema for /api/gemini
 export const GeminiAPIRequestSchema = z.object({
   action: z.enum(['generate_full_plan', 'adaptive_ripple_recs', 'generate_speech', 'generate_invitation']),
-  eventData: z.record(z.any()),
-  options: z.record(z.any()).optional(),
+  eventData: z.record(z.unknown()),
+  options: z.record(z.unknown()).optional(),
 });
 
 export type GeminiAPIRequest = z.infer<typeof GeminiAPIRequestSchema>;

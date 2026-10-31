@@ -59,7 +59,7 @@ npx playwright install chromium
 npm run test:e2e -- --prod
 ```
 
-The current suite has **60 unit/integration tests** and **9 browser journeys** covering planning, navigation, adaptive changes, expense entry, guests and persistence. E2E screenshots go to ignored `test-results/screenshots/`, or to `ARTIFACT_DIR/screenshots/` when configured. These are functional browser checks, not pixel-diff visual regression tests.
+The current suite has **76 unit/integration tests** and **9 browser journeys** covering planning, navigation, adaptive changes, expense entry, guests and persistence. E2E screenshots go to ignored `test-results/screenshots/`, or to `ARTIFACT_DIR/screenshots/` when configured. These are functional browser checks, not pixel-diff visual regression tests.
 
 For a hosted deployment, verify the frontend, API guards, exact allocation reconciliation and reported engine mode:
 
@@ -88,7 +88,8 @@ Import the repository into Vercel, select Vite, use `npm run build`, and set the
 - `src/services/`: AI client, offline planner, adaptive calculations and privacy filtering.
 - `src/types/`: TypeScript contracts, schemas and currency helpers.
 - `src/test/`: unit and integration coverage.
-- `api/gemini.ts`: validated server-side generation proxy.
+- `src/services/planValidation.ts`: model-output validation, safe enum normalization and exact allocation reconciliation.
+- `api/gemini.ts`: typed server-side generation proxy using the shared planner and contracts.
 - `scripts/`: local and hosted browser verification.
 
 Built with React, TypeScript, Vite, Tailwind CSS, Zustand and Zod. Icons use Lucide. Manrope and Outfit are served locally; their SIL Open Font License files are included in `public/fonts/`. The dashboard's visual direction was inspired by [Kuldeep Jiyani's project management dashboard](https://www.figma.com/community/file/1252141522555715905/project-management-dashboard-free).

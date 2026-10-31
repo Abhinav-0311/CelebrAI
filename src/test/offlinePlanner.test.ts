@@ -42,7 +42,7 @@ describe('Offline Deterministic Planner (Cents Precision)', () => {
   it('reconcileBudgetCents uses largest-remainder method with odd budget numbers', () => {
     // Test with an odd budget amount that does not divide cleanly by percentages
     const oddBudgetCents = 3333333; // $33,333.33
-    const pcts = [
+    const pcts: Parameters<typeof reconcileBudgetCents>[1] = [
       { category: 'catering', name: 'Catering', pct: 33 },
       { category: 'venue', name: 'Venue', pct: 33 },
       { category: 'decor', name: 'Decor', pct: 34 },

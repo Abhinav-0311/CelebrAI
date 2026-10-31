@@ -14,7 +14,7 @@ import { EventCreationInput } from '../types/schemas';
  * Free-text notes undergo regex pattern redaction for standard email addresses and telephone numbers.
  * Users are advised not to enter confidential identity credentials into free-text notes.
  */
-export function sanitizeEventPayloadForAI(input: EventCreationInput): Record<string, any> {
+export function sanitizeEventPayloadForAI(input: EventCreationInput): Required<EventCreationInput> {
   let cleanedNotes = input.specialNotes || '';
 
   // Redact email addresses

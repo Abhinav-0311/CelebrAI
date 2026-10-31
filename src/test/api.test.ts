@@ -1,10 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import handler, {
   resetRateLimits,
-  validateAndNormalizeDomainPlan,
-  preprocessAndNormalizeRawGeminiPlan,
 } from '../../api/gemini';
-import { AIEventPlanResponseSchema as ClientPlanSchema } from '../types/schemas';
+import { validateAndNormalizeDomainPlan, preprocessAndNormalizeRawGeminiPlan } from '../services/planValidation';
+import { AIEventPlanResponseSchema as ClientPlanSchema, EventCreationSchema, type EventCreationInput } from '../types/schemas';
+import { generateDeterministicPlan } from '../services/offlinePlanner';
+
+const { generateContentMock } = vi.hoisted(() => ({ generateContentMock: vi.fn() }));
+
+vi.mock('@google/genai', async importOriginal => {
+  const actual = await importOriginal<typeof import('@google/genai')>();
+  return {
+    ...actual,
+    GoogleGenAI: class {
+      models = { generateContent: generateContentMock };
+    },
+  };
+});
 
 function createMockReqRes(method: string, body: any, headers: Record<string, string> = {}) {
   const req: any = {
@@ -43,7 +55,12 @@ function createMockReqRes(method: string, body: any, headers: Record<string, str
 describe('Serverless API Proxy Security & Business Validation (/api/gemini)', () => {
   beforeEach(() => {
     resetRateLimits();
+    vi.stubEnv('GEMINI_API_KEY', '');
+    vi.stubEnv('GEMINI_MODEL', '');
+    generateContentMock.mockReset();
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it('rejects unsupported HTTP methods with 405 Method Not Allowed', async () => {
     const { req, res } = createMockReqRes('GET', {});
@@ -289,7 +306,7 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     };
 
     // 1. Test deterministic preprocessing
-    const preprocessed = preprocessAndNormalizeRawGeminiPlan(rawAiOutput);
+    const preprocessed = ClientPlanSchema.parse(preprocessAndNormalizeRawGeminiPlan(rawAiOutput));
 
     expect(preprocessed.theme.colorPalette[0].role).toBe('accent');
     expect(preprocessed.theme.colorPalette[1].role).toBe('secondary');
@@ -333,4 +350,95 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     const result = validateAndNormalizeDomainPlan(corruptPlan, 100000);
     expect(result).toBeNull();
   });
+
+  it.each(EventCreationSchema.shape.eventType.options)('matches browser fallback for %s with fractional currency', async eventType => {
+    const input: EventCreationInput = {
+      title: 'Shared planning contract', eventType, guestCount: 123, totalBudget: 33333.33,
+      currency: 'USD', eventDate: '2026-12-18', timezone: 'America/Los_Angeles',
+      location: 'City Gardens', venueType: 'garden', vibeKeywords: [],
+    };
+    const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
+    await handler(req, res);
+    const plan = ClientPlanSchema.parse(res.bodyData.data);
+    expect(res.statusCode).toBe(200);
+    expect(res.bodyData.mode).toBe('offline_fallback');
+    expect(plan).toEqual(generateDeterministicPlan(input));
+    expect(plan.allocations.reduce((sum, allocation) => sum + allocation.allocatedCents, 0)).toBe(3333333);
+    expect(plan.allocations.every(allocation => allocation.actualSpentCents === 0)).toBe(true);
+    expect(validateAndNormalizeDomainPlan(plan, 3333333)).not.toBeNull();
+  });
+
+  it('keeps generated text strict without rejecting intentionally empty saved drafts', () => {
+    const input = EventCreationSchema.parse({
+      title: 'Validation contract', eventType: 'birthday', guestCount: 50, totalBudget: 5000,
+      eventDate: '2026-12-18', location: 'City Gardens', venueType: 'garden',
+    });
+    const plan = generateDeterministicPlan(input);
+    plan.theme.conceptTitle = '';
+    expect(ClientPlanSchema.safeParse(plan).success).toBe(true);
+    expect(validateAndNormalizeDomainPlan(plan, 500000)).toBeNull();
+    plan.theme.conceptTitle = 'A valid concept';
+    plan.creative.invitations[0].headline = '';
+    plan.creative.invitations[0].body = '';
+    expect(ClientPlanSchema.safeParse(plan).success).toBe(true);
+    expect(validateAndNormalizeDomainPlan(plan, 500000)).not.toBeNull();
+  });
+
+  it.each([null, 42, [], { theme: null, allocations: [null], milestones: [false], vendorCategories: ['invalid'] }])(
+    'rejects malformed model output without throwing (%j)', raw => {
+      expect(validateAndNormalizeDomainPlan(raw, 500000)).toBeNull();
+    }
+  );
+
+
+  it('returns validated live output with the shared schema and exact budget', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'test-server-only-key');
+    const input = EventCreationSchema.parse({
+      title: 'Live model contract', eventType: 'corporate_gala', guestCount: 123,
+      totalBudget: 33333.33, eventDate: '2026-12-18', location: 'City Hall', venueType: 'ballroom',
+    });
+    generateContentMock.mockResolvedValue({ text: JSON.stringify(generateDeterministicPlan(input)) });
+    const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.bodyData.mode).toBe('live_ai');
+    expect(res.bodyData.model).toBe('gemini-3.5-flash-lite');
+    expect(ClientPlanSchema.safeParse(res.bodyData.data).success).toBe(true);
+    expect(res.bodyData.data.allocations.reduce((sum: number, allocation: { allocatedCents: number }) => sum + allocation.allocatedCents, 0)).toBe(3333333);
+    expect(generateContentMock).toHaveBeenCalledOnce();
+  });
+
+  it('tries the next model when the primary response is invalid', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'test-server-only-key');
+    const input = EventCreationSchema.parse({
+      title: 'Model failover contract', eventType: 'wedding', guestCount: 100, totalBudget: 25000,
+      eventDate: '2026-12-18', location: 'City Gardens', venueType: 'garden',
+    });
+    generateContentMock.mockResolvedValueOnce({ text: '{invalid JSON' })
+      .mockResolvedValueOnce({ text: JSON.stringify(generateDeterministicPlan(input)) });
+    const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
+    await handler(req, res);
+    expect(res.bodyData.mode).toBe('live_ai');
+    expect(res.bodyData.model).toBe('gemini-3.8-flash');
+    expect(generateContentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back safely without exposing upstream diagnostics when all models fail', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'test-server-only-key');
+    generateContentMock.mockRejectedValue(new Error('Upstream rejected test-server-only-key'));
+    const input = EventCreationSchema.parse({
+      title: 'Safe fallback contract', eventType: 'baby_shower', guestCount: 50, totalBudget: 5000,
+      eventDate: '2026-12-18', location: 'City Gardens', venueType: 'garden',
+    });
+    const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.bodyData.mode).toBe('offline_fallback');
+    expect(res.bodyData.data).toEqual(generateDeterministicPlan(input));
+    expect(res.bodyData).not.toHaveProperty('diagnostics');
+    expect(JSON.stringify(res.bodyData)).not.toContain('test-server-only-key');
+    expect(JSON.stringify(res.bodyData)).not.toContain('Upstream rejected');
+    expect(generateContentMock).toHaveBeenCalledTimes(2);
+  });
+
 });

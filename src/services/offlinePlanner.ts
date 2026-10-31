@@ -1,20 +1,8 @@
-import { AIEventPlanResponse, EventCreationInput } from '../types/schemas';
-import { dollarsToCents } from '../types/event';
+import { AIEventPlanResponse, EventCreationInput } from '../types/schemas.js';
+import { dollarsToCents, type BudgetAllocation, type BudgetCategory } from '../types/event.js';
 
-interface ThemePreset {
-  conceptTitle: string;
-  conceptDescription: string;
-  colorPalette: {
-    name: string;
-    hex: string;
-    role: 'primary' | 'secondary' | 'accent' | 'neutral' | 'highlight';
-  }[];
-  dressCode: string;
-  decorStyle: string;
-  ambianceLighting: string;
-  signatureDrink: string;
-  centerpieceConcept: string;
-}
+type ThemePreset = Required<AIEventPlanResponse['theme']>;
+type AllocationPercentage = { category: BudgetCategory; name: string; pct: number };
 
 const THEME_PRESETS: Record<string, ThemePreset> = {
   wedding: {
@@ -121,8 +109,8 @@ const THEME_PRESETS: Record<string, ThemePreset> = {
  */
 export function reconcileBudgetCents(
   totalBudgetCents: number,
-  percentages: { category: any; name: string; pct: number }[]
-): { id: string; category: any; name: string; percentage: number; allocatedCents: number; actualSpentCents: number }[] {
+  percentages: AllocationPercentage[]
+): BudgetAllocation[] {
   // Normalize percentages to sum to 100
   const totalPct = percentages.reduce((sum, p) => sum + p.pct, 0);
   
@@ -165,7 +153,7 @@ export function generateDeterministicPlan(input: EventCreationInput): AIEventPla
   const themePreset = THEME_PRESETS[input.eventType] || THEME_PRESETS.default;
   const totalBudgetCents = dollarsToCents(input.totalBudget);
 
-  let allocPercentages: { category: any; name: string; pct: number }[];
+  let allocPercentages: AllocationPercentage[];
 
   if (input.eventType === 'wedding') {
     allocPercentages = [
