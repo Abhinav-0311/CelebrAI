@@ -1,4 +1,4 @@
-import { AIEventPlanResponse, EventCreationInput, AIEventPlanResponseSchema } from '../types/schemas';
+import { AIEventPlanResponse, EventCreationInput, GeminiPlanResponseSchema } from '../types/schemas';
 import { generateDeterministicPlan } from './offlinePlanner';
 import { sanitizeEventPayloadForAI } from './privacySanitizer';
 
@@ -40,24 +40,19 @@ export async function generateCelebrAIPlan(
       };
     }
 
-    const json = await response.json();
-
-    if (json.success && json.data) {
-      // Tier 1 Validation: Zod schema validation
-      const parsed = AIEventPlanResponseSchema.safeParse(json.data);
-      if (parsed.success) {
-        return {
-          plan: parsed.data,
-          mode: json.mode === 'live_ai' ? 'live' : 'offline',
-          sourceMessage:
-            json.mode === 'live_ai'
-              ? `Live AI (Model: ${json.model || 'gemini-3.5-flash-lite'})`
-              : 'Offline Planner (Server deterministic fallback)',
-        };
-      } else {
-        console.warn('AI Output failed Zod schema validation. Falling back safely.', parsed.error);
-      }
+    const json: unknown = await response.json();
+    const parsed = GeminiPlanResponseSchema.safeParse(json);
+    if (parsed.success) {
+      const result = parsed.data;
+      return {
+        plan: result.data,
+        mode: result.mode === 'live_ai' ? 'live' : 'offline',
+        sourceMessage: result.mode === 'live_ai'
+          ? `Live AI (Model: ${result.model})`
+          : 'Offline Planner (Server deterministic fallback)',
+      };
     }
+    console.warn('AI response failed schema validation. Falling back safely.', parsed.error);
 
     // Default fallback
     const fallback = generateDeterministicPlan(input);

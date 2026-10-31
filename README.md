@@ -28,7 +28,7 @@ The Gemini key stays on the server. Generation sends the event brief, including 
 
 ## Run locally
 
-Use Node.js 22 or newer and npm.
+Use Node.js 24 (the version used by CI and Vercel) and npm.
 
 ```sh
 git clone https://github.com/Abhinav-0311/CelebrAI.git
@@ -51,15 +51,15 @@ Use [.env.example](.env.example) as a list of server settings. Vite's local API 
 ## Verify
 
 ```sh
-npm run typecheck
-npm run lint
-npm test
-npm run build
 npx playwright install chromium
-npm run test:e2e -- --prod
+npm run verify
 ```
 
-The current suite has **76 unit/integration tests** and **9 browser journeys** covering planning, navigation, adaptive changes, expense entry, guests and persistence. E2E screenshots go to ignored `test-results/screenshots/`, or to `ARTIFACT_DIR/screenshots/` when configured. These are functional browser checks, not pixel-diff visual regression tests.
+`verify` runs typecheck, lint, full-source unit coverage, production build, real local HTTP API checks and nine browser journeys. The same command runs on Node.js 24 in [GitHub Actions](.github/workflows/verify.yml) after a clean `npm ci` install. CI uses no Gemini key and tests the deterministic fallback; live generation is checked separately below.
+
+The suite has **106 unit/integration tests**. Coverage includes application components, services, state, contracts and the API, including files not imported by tests. Test files and the bootstrap entry `src/main.tsx` are excluded. Gates require at least 90% lines/statements, 75% branches and 65% functions overall, with stronger service/store checks in [vitest.config.ts](vitest.config.ts). Reports are written to ignored `coverage/` and retained as CI artifacts.
+
+Individual checks are available through `npm run test:coverage`, `npm run test:api` and `npm run test:e2e -- --prod`. API checks start a dedicated local server with an empty key and verify all eight event types, exact odd-currency totals, request validation and UTF-8 byte limits. Browser checks require all seven workspaces, adaptive apply/rejection, expense and guest changes, JSON transfer and persistence. They also deliberately remove required controls to confirm the harness fails. Browser screenshots go to ignored `test-results/screenshots/`, or `ARTIFACT_DIR/screenshots/` when configured; these are functional checks rather than pixel-diff visual regression tests.
 
 For a hosted deployment, verify the frontend, API guards, exact allocation reconciliation and reported engine mode:
 

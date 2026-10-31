@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useEventStore } from '../store/eventStore';
 import { computeFinancialSummary } from '../services/eventAnalytics';
 import { EventCreationInput } from '../types/schemas';
@@ -6,6 +6,7 @@ import { EventCreationInput } from '../types/schemas';
 describe('Event Store (Business Logic & State Invariants)', () => {
   beforeEach(() => {
     useEventStore.getState().loadSampleEvent();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
   });
 
   it('loads sample event properly with initial minor-unit budget and version 1 schema', () => {
@@ -182,4 +183,117 @@ describe('Event Store (Business Logic & State Invariants)', () => {
     expect(summary.remainingHeadroomCents).toBe(4200000);
     expect(summary.isOverBudget).toBe(false);
   });
+  it('rejects malformed pending ripples without replacing the current event', () => {
+    const current = useEventStore.getState().currentEvent!;
+    const result = useEventStore.getState().importEventJson(JSON.stringify({
+      ...current, pendingRipples: [{ id: 'broken', status: 'pending_review' }],
+    }));
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('pendingRipples');
+    expect(useEventStore.getState().currentEvent).toBe(current);
+  });
+
+  it('tracks an expense through unpaid, paid and deleted states without cent drift', () => {
+    const store = useEventStore.getState();
+    const before = computeFinancialSummary(store.currentEvent!.budget);
+    store.addExpense({ allocationId: 'alloc-1', category: 'venue', name: 'Final cleaning',
+      estimatedCents: 1025, actualCents: 1025, isPaid: false });
+    const expense = useEventStore.getState().currentEvent!.budget.expenses.find(item => item.name === 'Final cleaning')!;
+    expect(computeFinancialSummary(useEventStore.getState().currentEvent!.budget).totalOutstandingCents).toBe(before.totalOutstandingCents + 1025);
+    store.toggleExpensePaid(expense.id);
+    expect(computeFinancialSummary(useEventStore.getState().currentEvent!.budget).totalPaidCents).toBe(before.totalPaidCents + 1025);
+    store.deleteExpense(expense.id);
+    expect(computeFinancialSummary(useEventStore.getState().currentEvent!.budget)).toEqual(before);
+  });
+
+  it('updates dietary portions after a guest changes RSVP and is removed', () => {
+    const store = useEventStore.getState();
+    const before = store.currentEvent!.guests.dietarySummary;
+    store.addGuest({ name: 'Dietary test guest', rsvpStatus: 'attending', plusOnes: 2, dietary: ['vegan'] });
+    const guest = useEventStore.getState().currentEvent!.guests.list.find(item => item.name === 'Dietary test guest')!;
+    expect(useEventStore.getState().currentEvent!.guests.dietarySummary.confirmedVegan).toBe(before.confirmedVegan + 3);
+    store.updateGuest({ ...guest, rsvpStatus: 'declined' });
+    expect(useEventStore.getState().currentEvent!.guests.dietarySummary.confirmedAttending).toBe(before.confirmedAttending);
+    store.deleteGuest(guest.id);
+    expect(useEventStore.getState().currentEvent!.guests.list.some(item => item.id === guest.id)).toBe(false);
+    expect(useEventStore.getState().currentEvent!.guests.dietarySummary.confirmedVegan).toBe(before.confirmedVegan);
+  });
+
+  it('adds, edits, progresses and removes an operational milestone', () => {
+    const store = useEventStore.getState();
+    const originalCount = store.currentEvent!.timeline.milestones.length;
+    store.addMilestone({ time: '18:45', durationMinutes: 15, title: 'Briefing', category: 'speech',
+      assignedTo: 'Coordinator', status: 'pending' });
+    const item = useEventStore.getState().currentEvent!.timeline.milestones.find(item => item.title === 'Briefing')!;
+    store.updateMilestone({ ...item, title: 'Team briefing', time: '18:50' });
+    for (const status of ['in_progress', 'completed', 'pending']) {
+      store.toggleMilestoneStatus(item.id);
+      expect(useEventStore.getState().currentEvent!.timeline.milestones.find(value => value.id === item.id)?.status).toBe(status);
+    }
+    expect(useEventStore.getState().currentEvent!.timeline.milestones.find(value => value.id === item.id)).toMatchObject({ title: 'Team briefing', time: '18:50' });
+    store.deleteMilestone(item.id);
+    expect(useEventStore.getState().currentEvent!.timeline.milestones).toHaveLength(originalCount);
+  });
+
+  it('preserves a pending review through JSON transfer and dismisses it without applying', () => {
+    const store = useEventStore.getState();
+    store.updateGuestCount(180);
+    const alert = useEventStore.getState().activeRippleAlert!;
+    expect(alert).not.toBeNull();
+    const exported = store.exportEventJson();
+    store.resetEvent();
+    expect(store.importEventJson(exported).success).toBe(true);
+    expect(useEventStore.getState().currentEvent!.pendingRipples[0]).toEqual(alert);
+    store.setActiveRippleAlert(alert);
+    store.setAdaptiveModalOpen(true);
+    store.dismissRipple(alert.id);
+    expect(useEventStore.getState().currentEvent!.guestCount).toBe(150);
+    expect(useEventStore.getState().currentEvent!.pendingRipples[0].status).toBe('dismissed');
+    expect(useEventStore.getState().isAdaptiveModalOpen).toBe(false);
+  });
+
+  it('syncs reviewed vendor headcount and invitation status after an applied change', () => {
+    const store = useEventStore.getState();
+    const firstVendor = store.currentEvent!.vendors.categories[0];
+    const firstTask = firstVendor.checklist[0];
+    store.toggleVendorChecklist(firstVendor.id, firstTask.id);
+    expect(useEventStore.getState().currentEvent!.vendors.categories[0].checklist[0].isCompleted).toBe(!firstTask.isCompleted);
+    store.updateGuestCount(180);
+    expect(store.applyRipple(useEventStore.getState().activeRippleAlert!).success).toBe(true);
+    const event = useEventStore.getState().currentEvent!;
+    const vendor = event.vendors.categories.find(item => item.category === 'catering')!;
+    expect(vendor.needsReview).toBe(true);
+    store.syncVendorDraftHeadcount(vendor.id, 180);
+    expect(useEventStore.getState().currentEvent!.vendors.categories.find(item => item.id === vendor.id)?.inquiryDraft).toContain('180 guests');
+    store.dismissVendorReview(vendor.id);
+    expect(useEventStore.getState().currentEvent!.vendors.categories.find(item => item.id === vendor.id)?.needsReview).toBe(false);
+    const invitation = event.creative.invitations[0];
+    store.dismissInvitationReview(invitation.id);
+    expect(useEventStore.getState().currentEvent!.creative.invitations[0].needsReview).toBe(false);
+    expect(store.importEventJson(store.exportEventJson()).success).toBe(true);
+  });
+
+  it.each([
+    { newValue: 'invalid count' },
+    { severity: 'unknown' },
+    { calculatedDiffs: { cateringDeltaCents: 'invalid', seatingDeltaTables: 1, budgetVarianceCents: 0 } },
+  ])('rejects a corrupted review field while retaining the current event (%j)', patch => {
+    const store = useEventStore.getState();
+    store.updateGuestCount(180);
+    const event = useEventStore.getState().currentEvent!;
+    const result = store.importEventJson(JSON.stringify({ ...event, pendingRipples: [{ ...event.pendingRipples[0], ...patch }] }));
+    expect(result.success).toBe(false);
+    expect(useEventStore.getState().currentEvent).toBe(event);
+  });
+
+  it('retains valid legacy date-review metadata during JSON transfer', () => {
+    const store = useEventStore.getState();
+    store.updateGuestCount(180);
+    const event = useEventStore.getState().currentEvent!;
+    const review = { ...event.pendingRipples[0], triggerType: 'date_change',
+      previousValue: '2026-11-28', newValue: '2026-12-05' };
+    expect(store.importEventJson(JSON.stringify({ ...event, pendingRipples: [review] })).success).toBe(true);
+    expect(JSON.parse(store.exportEventJson()).pendingRipples[0]).toEqual(review);
+  });
+
 });

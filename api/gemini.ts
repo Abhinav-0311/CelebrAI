@@ -260,7 +260,7 @@ export default async function handler(req: GeminiRequest, res: GeminiResponse) {
 
   // Enforce Payload Size Cap (25 KB)
   const bodyString = JSON.stringify(req.body || {});
-  if (bodyString.length > 25600) {
+  if (Buffer.byteLength(bodyString, 'utf8') > 25600) {
     return res.status(413).json({ error: 'Payload Too Large. Max request size is 25 KB.' });
   }
 

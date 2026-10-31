@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import App from '../App';
 import { useEventStore } from '../store/eventStore';
@@ -6,6 +6,7 @@ import { useEventStore } from '../store/eventStore';
 describe('CelebrAI UI Integration & Flow Tests', () => {
   beforeEach(() => {
     useEventStore.getState().loadSampleEvent();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
   });
 
   it('renders application brand, header, and system operating mode badge', () => {

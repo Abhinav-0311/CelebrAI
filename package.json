@@ -14,7 +14,9 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "node scripts/run_e2e.mjs",
     "test:deployed": "node scripts/test_deployed.mjs",
-    "test:live-event": "node scripts/test_live_event_creation.mjs"
+    "test:live-event": "node scripts/test_live_event_creation.mjs",
+    "test:api": "node scripts/test_api.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run test:coverage && npm run build && npm run test:api && npm run test:e2e -- --prod"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
