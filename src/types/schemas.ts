@@ -120,6 +120,48 @@ export const AIEventPlanResponseSchema = z.object({
 
 export type AIEventPlanResponse = z.infer<typeof AIEventPlanResponseSchema>;
 
+export const GeminiPlanResponseSchema = z.discriminatedUnion('mode', [
+  z.object({
+    success: z.literal(true), mode: z.literal('live_ai'), model: z.string().min(1),
+    data: AIEventPlanResponseSchema,
+  }),
+  z.object({
+    success: z.literal(true), mode: z.literal('offline_fallback'), message: z.string().optional(),
+    data: AIEventPlanResponseSchema,
+  }),
+]);
+
+export const AdaptiveRippleSchema = z.object({
+  id: z.string(),
+  triggerType: z.enum(['guest_count_change', 'budget_change', 'date_change']),
+  previousValue: z.union([z.number().finite(), z.string()]),
+  newValue: z.union([z.number().finite(), z.string()]),
+  title: z.string(),
+  severity: z.enum(['low', 'medium', 'high']),
+  impactSummary: z.string(),
+  calculatedDiffs: z.object({
+    cateringDeltaCents: z.number().int(),
+    seatingDeltaTables: z.number().int(),
+    budgetVarianceCents: z.number().int(),
+  }),
+  recommendedActions: z.array(z.object({
+    actionType: z.enum(['update_budget', 'recalculate_catering', 'adjust_tables', 'update_timeline']),
+    description: z.string(),
+    // Legacy metadata is preserved; the adaptive engine recomputes changes instead of applying it.
+    patchData: z.record(z.unknown()).optional(),
+  })),
+  status: z.enum(['pending_review', 'applied', 'dismissed']),
+  createdAt: z.string(),
+}).superRefine((ripple, context) => {
+  for (const key of ['previousValue', 'newValue'] as const) {
+    const value = ripple[key];
+    const valid = ripple.triggerType === 'date_change'
+      ? typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      : typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+    if (!valid) context.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'Invalid value for ripple trigger' });
+  }
+});
+
 // Complete CelebrAI Event Schema for JSON import/export validation
 export const CelebrAIEventSchema = z.object({
   schemaVersion: z.number().int().default(1),
@@ -199,7 +241,7 @@ export const CelebrAIEventSchema = z.object({
     categories: z.array(AIVendorCategorySchema),
   }),
   creative: AICreativeSuiteSchema,
-  pendingRipples: z.array(z.any()),
+  pendingRipples: z.array(AdaptiveRippleSchema),
   appliedRipplesCount: z.number().int().min(0),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -25,7 +25,7 @@ export const TimelineTab: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
-  const [newMilestone, setNewMilestone] = useState<Partial<TimelineMilestone>>({
+  const [newMilestone, setNewMilestone] = useState<Omit<Partial<TimelineMilestone>, 'durationMinutes'> & { durationMinutes: number | string }>({
     time: '18:00',
     durationMinutes: 45,
     title: '',
@@ -66,7 +66,7 @@ export const TimelineTab: React.FC = () => {
 
     addMilestone({
       time: newMilestone.time,
-      durationMinutes: Number(newMilestone.durationMinutes) || 30,
+      durationMinutes: Number.parseInt(String(newMilestone.durationMinutes), 10) || 30,
       title: newMilestone.title,
       category: (newMilestone.category as MilestoneCategory) || 'reception',
       assignedTo: newMilestone.assignedTo || 'Event Staff',
@@ -305,10 +305,10 @@ export const TimelineTab: React.FC = () => {
 
             <form onSubmit={handleAddSubmit} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                <label htmlFor="cue-title" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                   Milestone Title *
                 </label>
-                <input
+                <input id="cue-title"
                   type="text"
                   required
                   placeholder="e.g. VIP Champagne Toast & Honors"
@@ -320,10 +320,10 @@ export const TimelineTab: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                  <label htmlFor="cue-time" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Scheduled Time (24h) *
                   </label>
-                  <input
+                  <input id="cue-time"
                     type="time"
                     required
                     value={newMilestone.time}
@@ -333,15 +333,15 @@ export const TimelineTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                  <label htmlFor="cue-duration" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Duration (Minutes)
                   </label>
-                  <input
+                  <input id="cue-duration"
                     type="number"
                     min="5"
                     step="5"
                     value={newMilestone.durationMinutes}
-                    onChange={(e) => setNewMilestone({ ...newMilestone, durationMinutes: parseInt(e.target.value) || 30 })}
+                    onChange={(e) => setNewMilestone({ ...newMilestone, durationMinutes: e.target.value })}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono"
                   />
                 </div>
@@ -349,10 +349,10 @@ export const TimelineTab: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                  <label htmlFor="cue-category" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Category *
                   </label>
-                  <select
+                  <select id="cue-category"
                     value={newMilestone.category}
                     onChange={(e) => setNewMilestone({ ...newMilestone, category: e.target.value as any })}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
@@ -368,10 +368,10 @@ export const TimelineTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                  <label htmlFor="cue-lead" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Assigned Lead
                   </label>
-                  <input
+                  <input id="cue-lead"
                     type="text"
                     placeholder="e.g. Stage Captain"
                     value={newMilestone.assignedTo}
@@ -382,10 +382,10 @@ export const TimelineTab: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                <label htmlFor="cue-notes" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                   Stage Directions & Cue Notes
                 </label>
-                <textarea
+                <textarea id="cue-notes"
                   rows={2}
                   placeholder="e.g. Dim ballroom lights, cue intro audio track"
                   value={newMilestone.notes}

@@ -1,9 +1,10 @@
+import { z } from 'zod';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import handler, {
-  resetRateLimits,
+  resetRateLimits, checkRateLimit, type GeminiRequest, type GeminiResponse,
 } from '../../api/gemini';
 import { validateAndNormalizeDomainPlan, preprocessAndNormalizeRawGeminiPlan } from '../services/planValidation';
-import { AIEventPlanResponseSchema as ClientPlanSchema, EventCreationSchema, type EventCreationInput } from '../types/schemas';
+import { AIEventPlanResponseSchema as ClientPlanSchema, EventCreationSchema, type EventCreationInput, GeminiPlanResponseSchema } from '../types/schemas';
 import { generateDeterministicPlan } from '../services/offlinePlanner';
 
 const { generateContentMock } = vi.hoisted(() => ({ generateContentMock: vi.fn() }));
@@ -18,8 +19,14 @@ vi.mock('@google/genai', async importOriginal => {
   };
 });
 
-function createMockReqRes(method: string, body: any, headers: Record<string, string> = {}) {
-  const req: any = {
+interface CapturedResponse extends GeminiResponse {
+  statusCode: number;
+  headers: Record<string, string>;
+  bodyData: unknown;
+}
+
+function createMockReqRes(method: string, body: unknown, headers: Record<string, string> = {}) {
+  const req: GeminiRequest = {
     method,
     body,
     headers: {
@@ -28,10 +35,10 @@ function createMockReqRes(method: string, body: any, headers: Record<string, str
     },
   };
 
-  const res: any = {
+  const res: CapturedResponse = {
     statusCode: 200,
     headers: {} as Record<string, string>,
-    bodyData: null as any,
+    bodyData: null,
     setHeader(key: string, value: string) {
       this.headers[key] = value;
       return this;
@@ -40,7 +47,7 @@ function createMockReqRes(method: string, body: any, headers: Record<string, str
       this.statusCode = code;
       return this;
     },
-    json(data: any) {
+    json(data: unknown) {
       this.bodyData = data;
       return this;
     },
@@ -50,6 +57,15 @@ function createMockReqRes(method: string, body: any, headers: Record<string, str
   };
 
   return { req, res };
+}
+
+const ErrorBodySchema = z.object({ error: z.string(), retryAfterSeconds: z.number().optional() });
+const errorBody = (res: CapturedResponse) => ErrorBodySchema.parse(res.bodyData);
+const successBody = (res: CapturedResponse) => GeminiPlanResponseSchema.parse(res.bodyData);
+function liveBody(res: CapturedResponse) {
+  const body = successBody(res);
+  if (body.mode !== 'live_ai') throw new Error('Expected live model response');
+  return body;
 }
 
 describe('Serverless API Proxy Security & Business Validation (/api/gemini)', () => {
@@ -67,7 +83,7 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(405);
-    expect(res.bodyData.error).toContain('Method Not Allowed');
+    expect(errorBody(res).error).toContain('Method Not Allowed');
   });
 
   it('rejects oversized request payloads exceeding 25 KB with 413', async () => {
@@ -76,7 +92,16 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(413);
-    expect(res.bodyData.error).toContain('Payload Too Large');
+    expect(errorBody(res).error).toContain('Payload Too Large');
+  });
+
+  it('enforces the 25 KB limit in UTF-8 bytes for multibyte payloads', async () => {
+    const body = { notes: '界'.repeat(9000) };
+    expect(JSON.stringify(body).length).toBeLessThan(25600);
+    expect(Buffer.byteLength(JSON.stringify(body), 'utf8')).toBeGreaterThan(25600);
+    const { req, res } = createMockReqRes('POST', body);
+    await handler(req, res);
+    expect(res.statusCode).toBe(413);
   });
 
   it('rejects malformed or incomplete request schemas with 400 Bad Request', async () => {
@@ -84,7 +109,7 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(400);
-    expect(res.bodyData.error).toContain('Invalid request payload schema');
+    expect(errorBody(res).error).toContain('Invalid request payload schema');
   });
 
   it('rejects unsupported actions with 400 Bad Request', async () => {
@@ -104,7 +129,7 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(400);
-    expect(res.bodyData.error).toContain('Unsupported action');
+    expect(errorBody(res).error).toContain('Unsupported action');
   });
 
   it('rejects invalid eventData parameters with 400 Bad Request', async () => {
@@ -124,7 +149,7 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(400);
-    expect(res.bodyData.error).toContain('Invalid eventData parameters');
+    expect(errorBody(res).error).toContain('Invalid eventData parameters');
   });
 
   it('delivers high-fidelity offline fallback plan when GEMINI_API_KEY is unset with exact budget reconciliation', async () => {
@@ -151,17 +176,17 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.bodyData.success).toBe(true);
-    expect(res.bodyData.mode).toBe('offline_fallback');
-    expect(res.bodyData.data.theme.conceptTitle).toBeDefined();
-    expect(res.bodyData.data.allocations.length).toBeGreaterThan(0);
+    expect(successBody(res).success).toBe(true);
+    expect(successBody(res).mode).toBe('offline_fallback');
+    expect(successBody(res).data.theme.conceptTitle).toBeDefined();
+    expect(successBody(res).data.allocations.length).toBeGreaterThan(0);
 
     // Single-cent exact reconciliation check: 20000 * 100 = 2,000,000 cents
-    const sumCents = res.bodyData.data.allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
+    const sumCents = successBody(res).data.allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
     expect(sumCents).toBe(2000000);
 
     // Both server and client schema must validate the fallback plan
-    const clientValidation = ClientPlanSchema.safeParse(res.bodyData.data);
+    const clientValidation = ClientPlanSchema.safeParse(successBody(res).data);
     expect(clientValidation.success).toBe(true);
 
     if (originalKey) process.env.GEMINI_API_KEY = originalKey;
@@ -186,12 +211,12 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     await handler(req, res);
 
     expect(res.statusCode).toBe(200);
-    const allocations = res.bodyData.data.allocations;
-    const categories = allocations.map((a: any) => a.category);
+    const allocations = successBody(res).data.allocations;
+    const categories = allocations.map((a) => a.category);
     const uniqueCategories = new Set(categories);
     expect(uniqueCategories.size).toBe(categories.length);
 
-    const total = allocations.reduce((sum: number, a: any) => sum + a.allocatedCents, 0);
+    const total = allocations.reduce((sum, a) => sum + a.allocatedCents, 0);
     expect(total).toBe(4500000);
   });
 
@@ -225,8 +250,8 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     expect(resBlocked.statusCode).toBe(429);
     expect(resBlocked.headers['X-RateLimit-Remaining']).toBe('0');
     expect(resBlocked.headers['Retry-After']).toBeDefined();
-    expect(resBlocked.bodyData.error).toBe('Too Many Requests');
-    expect(resBlocked.bodyData.retryAfterSeconds).toBeGreaterThan(0);
+    expect(errorBody(resBlocked).error).toBe('Too Many Requests');
+    expect(errorBody(resBlocked).retryAfterSeconds).toBeGreaterThan(0);
   });
 
   it('normalizes safe enum variants from AI (e.g. "Primary Accent", "Venue", "Inspirational") and satisfies client schema', () => {
@@ -359,9 +384,9 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     };
     const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
     await handler(req, res);
-    const plan = ClientPlanSchema.parse(res.bodyData.data);
+    const plan = ClientPlanSchema.parse(successBody(res).data);
     expect(res.statusCode).toBe(200);
-    expect(res.bodyData.mode).toBe('offline_fallback');
+    expect(successBody(res).mode).toBe('offline_fallback');
     expect(plan).toEqual(generateDeterministicPlan(input));
     expect(plan.allocations.reduce((sum, allocation) => sum + allocation.allocatedCents, 0)).toBe(3333333);
     expect(plan.allocations.every(allocation => allocation.actualSpentCents === 0)).toBe(true);
@@ -401,10 +426,10 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
     await handler(req, res);
     expect(res.statusCode).toBe(200);
-    expect(res.bodyData.mode).toBe('live_ai');
-    expect(res.bodyData.model).toBe('gemini-3.5-flash-lite');
-    expect(ClientPlanSchema.safeParse(res.bodyData.data).success).toBe(true);
-    expect(res.bodyData.data.allocations.reduce((sum: number, allocation: { allocatedCents: number }) => sum + allocation.allocatedCents, 0)).toBe(3333333);
+    expect(successBody(res).mode).toBe('live_ai');
+    expect(liveBody(res).model).toBe('gemini-3.5-flash-lite');
+    expect(ClientPlanSchema.safeParse(successBody(res).data).success).toBe(true);
+    expect(successBody(res).data.allocations.reduce((sum: number, allocation: { allocatedCents: number }) => sum + allocation.allocatedCents, 0)).toBe(3333333);
     expect(generateContentMock).toHaveBeenCalledOnce();
   });
 
@@ -418,8 +443,8 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
       .mockResolvedValueOnce({ text: JSON.stringify(generateDeterministicPlan(input)) });
     const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
     await handler(req, res);
-    expect(res.bodyData.mode).toBe('live_ai');
-    expect(res.bodyData.model).toBe('gemini-3.8-flash');
+    expect(successBody(res).mode).toBe('live_ai');
+    expect(liveBody(res).model).toBe('gemini-3.8-flash');
     expect(generateContentMock).toHaveBeenCalledTimes(2);
   });
 
@@ -433,12 +458,72 @@ describe('Serverless API Proxy Security & Business Validation (/api/gemini)', ()
     const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
     await handler(req, res);
     expect(res.statusCode).toBe(200);
-    expect(res.bodyData.mode).toBe('offline_fallback');
-    expect(res.bodyData.data).toEqual(generateDeterministicPlan(input));
+    expect(successBody(res).mode).toBe('offline_fallback');
+    expect(successBody(res).data).toEqual(generateDeterministicPlan(input));
     expect(res.bodyData).not.toHaveProperty('diagnostics');
     expect(JSON.stringify(res.bodyData)).not.toContain('test-server-only-key');
     expect(JSON.stringify(res.bodyData)).not.toContain('Upstream rejected');
     expect(generateContentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('expires a rate-limit window and isolates clients', () => {
+    let now = 1000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    for (let request = 0; request < 20; request++) expect(checkRateLimit('client-a').allowed).toBe(true);
+    expect(checkRateLimit('client-a').allowed).toBe(false);
+    expect(checkRateLimit('client-b').allowed).toBe(true);
+    now += 60001;
+    expect(checkRateLimit('client-a')).toMatchObject({ allowed: true, remaining: 19 });
+  });
+
+  it('stops model attempts when the total inference budget is exhausted', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'test-server-only-key');
+    let now = 1000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    generateContentMock.mockImplementation(async () => {
+      now += 17000;
+      throw new Error('Upstream timeout');
+    });
+    const input = EventCreationSchema.parse({
+      title: 'Inference budget contract', eventType: 'birthday', guestCount: 50, totalBudget: 5000,
+      eventDate: '2026-12-18', location: 'City Gardens', venueType: 'garden',
+    });
+    const { req, res } = createMockReqRes('POST', { action: 'generate_full_plan', eventData: input });
+    await handler(req, res);
+    expect(generateContentMock).toHaveBeenCalledOnce();
+    expect(successBody(res).mode).toBe('offline_fallback');
+    expect(successBody(res).data.allocations.reduce((sum, item) => sum + item.allocatedCents, 0)).toBe(500000);
+  });
+
+  it('fills sparse valid plans without replacing existing milestones', () => {
+    const input = EventCreationSchema.parse({
+      title: 'Sparse generation contract', eventType: 'wedding', guestCount: 80, totalBudget: 10000,
+      eventDate: '2026-12-18', location: 'City Gardens', venueType: 'garden',
+    });
+    const plan = generateDeterministicPlan(input);
+    const original = plan.milestones.slice(0, 3);
+    const result = validateAndNormalizeDomainPlan({ ...plan, milestones: original, vendorCategories: [],
+      creative: { ...plan.creative, playlistVibes: [], partyGames: [] } }, 1000000, input)!;
+    expect(result).not.toBeNull();
+    expect(result.milestones).toEqual(expect.arrayContaining(original));
+    expect(result.milestones.length).toBeGreaterThan(original.length);
+    expect(result.vendorCategories.length).toBeGreaterThan(0);
+    expect(result.creative.partyGames.length).toBeGreaterThan(1);
+    expect(result.creative.playlistVibes.length).toBeGreaterThan(2);
+  });
+
+  it('rejects zero-value or duplicate-category allocation plans', () => {
+    const input = EventCreationSchema.parse({
+      title: 'Allocation integrity', eventType: 'birthday', guestCount: 50, totalBudget: 5000,
+      eventDate: '2026-12-18', location: 'City Gardens', venueType: 'garden',
+    });
+    const plan = generateDeterministicPlan(input);
+    expect(validateAndNormalizeDomainPlan({ ...plan, allocations: plan.allocations.map(item => ({
+      ...item, allocatedCents: 0, percentage: 0,
+    })) }, 500000)).toBeNull();
+    expect(validateAndNormalizeDomainPlan({ ...plan, allocations: plan.allocations.map(item => ({
+      ...item, category: 'venue',
+    })) }, 500000)).toBeNull();
   });
 
 });

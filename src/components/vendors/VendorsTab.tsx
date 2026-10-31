@@ -22,16 +22,23 @@ export const VendorsTab: React.FC = () => {
     syncVendorDraftHeadcount 
   } = useEventStore();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState('');
 
   if (!currentEvent) return null;
 
   const { vendors } = currentEvent;
   const categories = vendors.categories;
 
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
+  const handleCopy = async (id: string, text: string) => {
+    setCopyError('');
+    setCopiedId(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      setCopyError('Could not copy. Select the draft and copy it manually, or allow clipboard access.');
+    }
   };
 
   const handleOpenEmail = (vendorEmail: string | undefined, subject: string, body: string) => {
@@ -53,6 +60,8 @@ export const VendorsTab: React.FC = () => {
           Actionable vendor checklists and automated RFP inquiry emails with your event parameters injected
         </p>
       </div>
+
+      {copyError && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{copyError}</p>}
 
       {/* Categories Grid */}
       <div className="space-y-6">

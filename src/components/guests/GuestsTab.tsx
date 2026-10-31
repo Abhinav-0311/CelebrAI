@@ -24,9 +24,9 @@ export const GuestsTab: React.FC = () => {
     name: string;
     email: string;
     rsvpStatus: RSVPStatus;
-    plusOnes: number;
+    plusOnes: number | string;
     dietary: DietaryRequirement[];
-    tableNumber: number;
+    tableNumber: number | string;
     isVip: boolean;
   }>({
     name: '',
@@ -74,9 +74,9 @@ export const GuestsTab: React.FC = () => {
       name: newGuest.name,
       email: newGuest.email,
       rsvpStatus: newGuest.rsvpStatus,
-      plusOnes: Number(newGuest.plusOnes) || 0,
+      plusOnes: Number.parseInt(String(newGuest.plusOnes), 10) || 0,
       dietary: newGuest.dietary.length > 0 ? newGuest.dietary : ['none'],
-      tableNumber: Number(newGuest.tableNumber) || 1,
+      tableNumber: Number.parseInt(String(newGuest.tableNumber), 10) || 1,
       isVip: newGuest.isVip,
     });
 
@@ -222,6 +222,7 @@ export const GuestsTab: React.FC = () => {
             <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
             <input
               type="text"
+              aria-label="Search guests"
               placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -387,7 +388,7 @@ export const GuestsTab: React.FC = () => {
                   <select
                     id="guest-rsvp"
                     value={newGuest.rsvpStatus}
-                    onChange={(e) => setNewGuest({ ...newGuest, rsvpStatus: e.target.value as any })}
+                    onChange={(e) => setNewGuest({ ...newGuest, rsvpStatus: e.target.value as RSVPStatus })}
                     className="w-full px-2 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869]"
                   >
                     <option value="attending">Attending</option>
@@ -406,21 +407,22 @@ export const GuestsTab: React.FC = () => {
                     min="0"
                     max="10"
                     value={newGuest.plusOnes}
-                    onChange={(e) => setNewGuest({ ...newGuest, plusOnes: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => setNewGuest({ ...newGuest, plusOnes: e.target.value })}
                     className="w-full px-2 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                  <label htmlFor="guest-table" className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                     Table #
                   </label>
                   <input
                     type="number"
                     min="1"
                     max="100"
+                    id="guest-table"
                     value={newGuest.tableNumber}
-                    onChange={(e) => setNewGuest({ ...newGuest, tableNumber: parseInt(e.target.value) || 1 })}
+                    onChange={(e) => setNewGuest({ ...newGuest, tableNumber: e.target.value })}
                     className="w-full px-2 py-1.5 text-xs rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:border-[#C5A869] font-mono"
                   />
                 </div>
@@ -437,6 +439,7 @@ export const GuestsTab: React.FC = () => {
                       <button
                         key={d}
                         type="button"
+                        aria-pressed={sel}
                         onClick={() => handleDietaryToggle(d)}
                         className={`px-2 py-1 rounded text-[11px] font-medium transition ${
                           sel ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900' : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'

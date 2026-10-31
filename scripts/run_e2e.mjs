@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { openTab, verifyNavigation, verifyAdaptiveReview } from './browser_checks.mjs';
 import { chromium } from 'playwright';
 import { spawn } from 'child_process';
 import path from 'path';
@@ -37,23 +39,27 @@ async function runE2ETests() {
   console.log(`🚀 Starting CelebrAI Playwright E2E Suite [${serverMode}]...\n`);
 
   let serverProcess;
+  let browser;
+  let context;
   const port = isProd ? '4173' : '5173';
-  const baseUrl = `http://localhost:${port}`;
+  const baseUrl = `http://127.0.0.1:${port}`;
 
   if (isProd) {
     // Build and run vite preview
     console.log('📦 Starting Production Preview Server on port 4173...');
     const viteBin = path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
-    serverProcess = spawn('node', [viteBin, 'preview', '--port', '4173'], {
+    serverProcess = spawn(process.execPath, [viteBin, 'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], {
       cwd: rootDir,
       stdio: 'pipe',
+      env: { ...process.env, GEMINI_API_KEY: '', GEMINI_MODEL: '' },
     });
   } else {
     // Run vite dev server
     const viteBin = path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
-    serverProcess = spawn('node', [viteBin, '--port', '5173'], {
+    serverProcess = spawn(process.execPath, [viteBin, '--host', '127.0.0.1', '--port', '5173', '--strictPort'], {
       cwd: rootDir,
       stdio: 'pipe',
+      env: { ...process.env, GEMINI_API_KEY: '', GEMINI_MODEL: '' },
     });
   }
 
@@ -64,10 +70,11 @@ async function runE2ETests() {
     console.log(`✓ ${serverMode} running at ${baseUrl}\n`);
 
     // Launch Chromium
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
+    browser = await chromium.launch({ headless: true });
+    context = await browser.newContext({
       viewport: { width: 1440, height: 900 },
     });
+    await context.tracing.start({ screenshots: true, snapshots: true });
     const page = await context.newPage();
 
     // Collect errors to fail on unexpected crashes
@@ -103,52 +110,64 @@ async function runE2ETests() {
 
     // --- JOURNEY 2: Tab Navigation & Screenshots ---
     console.log('\n--- Journey 2: Full Tab Module Traversal ---');
+    await verifyNavigation(page);
+    const guardPage = await context.newPage();
+    try {
+      guardPage.setDefaultTimeout(1000);
+      await guardPage.goto(baseUrl, { waitUntil: 'networkidle' });
+      await guardPage.locator('#tab-vendors').evaluate(element => element.remove());
+      await assert.rejects(verifyNavigation(guardPage), { code: 'ERR_ASSERTION' });
+      await guardPage.reload({ waitUntil: 'networkidle' });
+      await guardPage.getByRole('button', { name: 'Recalculate guest adaptive ripple', exact: true }).evaluate(element => element.remove());
+      await assert.rejects(verifyAdaptiveReview(guardPage), /Recalculate guest adaptive ripple/);
+    } finally { await guardPage.close(); }
+    console.log('✓ Missing required tabs and adaptive controls correctly fail verification');
     
     // Budget Tab
-    await page.click('#tab-budget');
-    await page.waitForTimeout(400);
+    await openTab(page, 'budget');
+
     await saveScreenshot(page, 'screenshot_budget.png');
     console.log('✓ Budget & Minor-Units Expense Ledger verified');
 
     // Timeline Tab & Live Day-of Mode
-    await page.click('#tab-timeline');
-    await page.waitForTimeout(400);
+    await openTab(page, 'timeline');
+
     await page.click('button:has-text("Enter Day-of Mode")');
-    await page.waitForTimeout(400);
+
     await saveScreenshot(page, 'screenshot_timeline.png');
     console.log('✓ Run-of-Show & Live Day-of Mode verified');
     await page.click('button:has-text("Exit Day-of Mode")');
-    await page.waitForTimeout(300);
+
 
     // Guests Tab
-    await page.click('#tab-guests');
-    await page.waitForTimeout(400);
+    await openTab(page, 'guests');
+
     await saveScreenshot(page, 'screenshot_guests.png');
     console.log('✓ Guests & Dietary Intelligence verified');
 
     // Creative Studio Tab
-    await page.click('#tab-creative');
-    await page.waitForTimeout(400);
+    await openTab(page, 'creative');
+
     await saveScreenshot(page, 'screenshot_creative.png');
     console.log('✓ AI Creative Studio (Invitations & Speeches) verified');
 
     // --- JOURNEY 3: Infeasible Budget Reduction Rejection & Guidance ---
     console.log('\n--- Journey 3: Infeasible Budget Rejection Verification ---');
-    await page.click('#tab-overview');
-    await page.waitForTimeout(300);
+    await openTab(page, 'overview');
+
 
     const budgetInput = page.locator('#adjust-budget');
     await budgetInput.fill('30000');
     await page.click('button:has-text("Rebalance")');
-    await page.waitForTimeout(500);
+
 
     const modal = page.locator('[role="dialog"]');
-    if (!(await modal.isVisible())) throw new Error('Adaptive Review Modal failed to open');
+    await modal.waitFor({ state: 'visible' });
     console.log('✓ Adaptive Review Modal opened');
 
     // Verify non-actionable warning is displayed
-    const warningStatus = page.locator('[role="status"]');
-    if (!(await warningStatus.isVisible())) throw new Error('Infeasible budget warning box not visible');
+    const warningStatus = modal.getByRole('status');
+    await warningStatus.waitFor({ state: 'visible' });
     const warningText = await warningStatus.innerText();
     console.log(`✓ Explanatory constraint warning: "${warningText.trim().replace(/\n/g, ' ')}"`);
 
@@ -161,12 +180,11 @@ async function runE2ETests() {
 
     // Test Escape key handling to dismiss modal
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(400);
-    if (await modal.isVisible()) {
-      // Fallback click if key didn't close
-      await page.click('button:has-text("Dismiss / Keep Manual")');
-      await page.waitForTimeout(400);
-    }
+
+    await modal.waitFor({ state: 'hidden' });
+    await openTab(page, 'budget');
+    assert.match(await page.locator('#panel-budget').innerText(), /\$45,000/);
+    await openTab(page, 'overview');
     console.log('✓ Modal dismissed via Escape key, event budget protected from illegal mutation');
 
     // --- JOURNEY 4: Feasible Guest Expansion & Dynamic Rebalancing ---
@@ -175,23 +193,28 @@ async function runE2ETests() {
     await guestInput.fill('180');
     const recalcBtn = page.locator('button:has-text("Recalculate"), button:has-text("Ripple")').first();
     await recalcBtn.click();
-    await page.waitForTimeout(500);
 
+
+    await modal.waitFor({ state: 'visible' });
     await saveScreenshot(page, 'screenshot_adaptive_applied.png');
-    await page.click('button:has-text("Apply Recommendations")');
-    await page.waitForTimeout(500);
+    await modal.waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: 'Apply Recommendations', exact: true }).click();
+    await modal.waitFor({ state: 'hidden' });
+    assert.equal(await guestInput.inputValue(), '180');
+
 
     const updatedOverviewText = await page.innerText('body');
     if (!updatedOverviewText.includes('180 Guests') && !updatedOverviewText.includes('180')) {
       throw new Error('Guest count was not updated to 180');
     }
-    console.log('✓ Feasible adaptive expansion (+30 guests, +3 tables, +$2,400 catering) applied seamlessly');
+    console.log('✓ Guest expansion applied; exact headcount and affected vendor review verified');
 
     // Verify Vendors Tab reflects adaptive review flag and user-controlled headcount sync
-    await page.click('#tab-vendors');
-    await page.waitForTimeout(400);
+    await openTab(page, 'vendors');
+
 
     const vendorReviewBanner = page.locator('text=Adaptive Parameter Update').first();
+    await vendorReviewBanner.waitFor({ state: 'visible' });
     if (!(await vendorReviewBanner.isVisible())) {
       throw new Error('Mandatory Adaptive Parameter Update banner not visible in Vendors tab after guest count expansion');
     }
@@ -207,7 +230,7 @@ async function runE2ETests() {
       throw new Error('Expected "Update to 180 Guests" button to be visible on catering vendor card');
     }
     await syncBtn.click();
-    await page.waitForTimeout(300);
+
 
     // Assert the actual inquiry draft text now contains "180 guests"
     const inquiryDraftText = await page.locator('.whitespace-pre-line').first().innerText();
@@ -216,22 +239,22 @@ async function runE2ETests() {
     }
     console.log('✓ Mandatory vendor RFP headcount sync to 180 guests verified in live DOM');
 
-    await page.click('#tab-overview');
-    await page.waitForTimeout(300);
+    await openTab(page, 'overview');
+
 
     // --- JOURNEY 5: Add Expense to Budget Ledger ---
     console.log('\n--- Journey 5: Add Line-Item Expense Ledger Verification ---');
-    await page.click('#tab-budget');
-    await page.waitForTimeout(300);
+    await openTab(page, 'budget');
+
 
     await page.click('button:has-text("Log Expense")');
-    await page.waitForTimeout(300);
+
 
     await page.fill('input[placeholder="e.g. Acoustic Audio Equipment Rental"]', 'Artisan Grand Floral Arch');
     await page.fill('input[placeholder="e.g. Sonic Sound Co"]', 'Botanica Bloom Lab');
     await page.fill('input[type="number"][required]', '500');
     await page.click('button:has-text("Save Expense")');
-    await page.waitForTimeout(400);
+
 
     const budgetBodyText = await page.innerText('body');
     if (!budgetBodyText.includes('Artisan Grand Floral Arch')) {
@@ -241,8 +264,8 @@ async function runE2ETests() {
 
     // --- JOURNEY 6: Add Guest with Plus-Ones & Dietary ---
     console.log('\n--- Journey 6: Guest Management with Plus-Ones & Kitchen Dietary Sync ---');
-    await page.click('#tab-guests');
-    await page.waitForTimeout(300);
+    await openTab(page, 'guests');
+
 
     // Read initial confirmed attending and vegan counts
     const prevAttendingText = await page.locator('text=Confirmed Attending').locator('..').locator('p').innerText();
@@ -251,7 +274,7 @@ async function runE2ETests() {
     const prevVeganCount = parseInt(prevVeganText) || 0;
 
     await page.click('button:has-text("Add Guest")');
-    await page.waitForTimeout(300);
+
 
     await page.fill('input[placeholder="e.g. Dr. Julian Vance"]', 'Alexander Vance-Sterling');
     await page.fill('input[placeholder="julian@example.com"]', 'alexander.vance@example.com');
@@ -260,7 +283,7 @@ async function runE2ETests() {
     // Select vegan dietary toggle
     await page.click('button:has-text("vegan")');
     await page.click('button:has-text("Save Guest")');
-    await page.waitForTimeout(400);
+
 
     // Verify attending increased by 2 (1 guest + 1 plus-one)
     const newAttendingText = await page.locator('text=Confirmed Attending').locator('..').locator('p').innerText();
@@ -282,8 +305,9 @@ async function runE2ETests() {
     console.log('\n--- Journey 7: Mobile Viewport Quality Check & Overflow Detection ---');
     // Test 390px (iPhone 14)
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.click('#tab-overview');
-    await page.waitForTimeout(400);
+    await page.waitForFunction(() => document.querySelector('[role="tablist"]')?.getAttribute('aria-orientation') !== 'vertical');
+    await openTab(page, 'overview');
+
 
     // Check for unintended horizontal overflow at 390px
     const overflow390 = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
@@ -302,7 +326,8 @@ async function runE2ETests() {
 
     // Test 320px (Compact Mobile / iPhone SE 1st gen)
     await page.setViewportSize({ width: 320, height: 568 });
-    await page.waitForTimeout(300);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+
     const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     if (overflow320) throw new Error('Unintended horizontal page scroll detected at 320px width');
     console.log('✓ 320px compact viewport verified: zero horizontal overflow');
@@ -342,7 +367,7 @@ async function runE2ETests() {
 
     // 2. Reset event to Sample State (150 guests) to establish distinct initial state
     await page.click('button:has-text("Sample Event")');
-    await page.waitForTimeout(500);
+
 
     const resetPageText = await page.innerText('body');
     if (!resetPageText.includes('150 Guests') && !resetPageText.includes('150')) {
@@ -353,28 +378,29 @@ async function runE2ETests() {
     // 3. Upload previously downloaded JSON using real HTML file input control
     const fileInput = page.locator('input[type="file"][accept=".json"]');
     await fileInput.setInputFiles(tempExportPath);
-    await page.waitForTimeout(600);
+    await page.waitForFunction(() => document.querySelector('#adjust-guests')?.value === '180');
+
 
     // 4. Verify exact restored state in DOM
     // Overview tab: Assert restored guest count = 180
-    await page.click('#tab-overview');
-    await page.waitForTimeout(300);
+    await openTab(page, 'overview');
+
     const restoredOverview = await page.innerText('body');
     if (!restoredOverview.includes('180 Guests') && !restoredOverview.includes('180')) {
       throw new Error('Failed to restore guest count of 180 after JSON import');
     }
 
     // Budget tab: Assert restored line-item expense exists
-    await page.click('#tab-budget');
-    await page.waitForTimeout(300);
+    await openTab(page, 'budget');
+
     const restoredBudget = await page.innerText('body');
     if (!restoredBudget.includes('Artisan Grand Floral Arch')) {
       throw new Error('Failed to restore custom line-item expense "Artisan Grand Floral Arch" after JSON import');
     }
 
     // Guests tab: Assert restored modified guest record "Alexander Vance-Sterling" exists
-    await page.click('#tab-guests');
-    await page.waitForTimeout(300);
+    await openTab(page, 'guests');
+
     const restoredGuests = await page.innerText('body');
     if (!restoredGuests.includes('Alexander Vance-Sterling')) {
       throw new Error('Failed to restore custom guest record "Alexander Vance-Sterling" after JSON import');
@@ -382,15 +408,15 @@ async function runE2ETests() {
 
     // 5. Page Reload Persistence Verification: State must persist across page refresh
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(400);
+
     // Overview tab after reload must retain 180 guests
     const reloadedOverview = await page.innerText('body');
     if (!reloadedOverview.includes('180 Guests') && !reloadedOverview.includes('180')) {
       throw new Error('Imported event parameters failed to persist after page reload');
     }
     // Navigate to Guests tab to verify guest directory persistence
-    await page.click('#tab-guests');
-    await page.waitForTimeout(300);
+    await openTab(page, 'guests');
+
     const reloadedGuests = await page.innerText('body');
     if (!reloadedGuests.includes('Alexander Vance-Sterling')) {
       throw new Error('Imported guest record failed to persist after page reload');
@@ -408,7 +434,7 @@ async function runE2ETests() {
     // --- JOURNEY 9: Create New Bespoke Event Wizard (Offline Planner) ---
     console.log('\n--- Journey 9: Bespoke Event Creation Wizard Across All Modules ---');
     await page.click('button:has-text("Plan Event")');
-    await page.waitForTimeout(400);
+
 
     await page.fill('#evt-title', 'Odyssey Innovation Gala');
     await page.selectOption('#evt-type', 'corporate_gala');
@@ -428,38 +454,45 @@ async function runE2ETests() {
     }
 
     // Verify Budget module populated
-    await page.click('#tab-budget');
-    await page.waitForTimeout(300);
+    await openTab(page, 'budget');
+
     const budgetContent = await page.innerText('body');
     if (!budgetContent.includes('$35,000')) throw new Error('Budget not updated to $35,000');
 
     // Verify Timeline module populated
-    await page.click('#tab-timeline');
-    await page.waitForTimeout(300);
+    await openTab(page, 'timeline');
+
     const timelineMilestones = await page.locator('button[title*="Click to cycle status"]').count();
     if (timelineMilestones < 3) throw new Error(`Timeline milestones not generated (count: ${timelineMilestones})`);
 
     // Verify Creative module populated
-    await page.click('#tab-creative');
-    await page.waitForTimeout(300);
+    await openTab(page, 'creative');
+
     const creativeContent = await page.innerText('body');
     if (!creativeContent.includes('Invitation') && !creativeContent.includes('Speech')) {
       throw new Error('Creative suite invitations or speeches not generated');
     }
 
-    console.log('✓ Bespoke event generated and verified populated across all 6 core functional modules');
+    await verifyNavigation(page);
+    console.log('✓ Bespoke event generated with all seven workspaces available');
 
     // Check if any browser errors were recorded
     if (browserErrors.length > 0) {
       throw new Error(`E2E encountered ${browserErrors.length} browser errors during execution:\n${browserErrors.join('\n')}`);
     }
 
-    await browser.close();
     console.log(`\n🎉 ALL 9 REAL-BROWSER E2E JOURNEYS PASSED WITH 100% SUCCESS [${serverMode}]!`);
-  } finally {
-    if (serverProcess) {
-      serverProcess.kill();
+  } catch (error) {
+    try {
+      const page = context?.pages()[0];
+      if (page) await page.screenshot({ path: path.join(screenshotDir, 'failure.png'), fullPage: true });
+      await context?.tracing.stop({ path: path.join(path.dirname(screenshotDir), 'failure-trace.zip') });
+    } catch (captureError) {
+      console.error('Could not capture browser failure evidence:', captureError.message);
     }
+    throw error;
+  } finally {
+    try { await browser?.close(); } finally { serverProcess?.kill(); }
   }
 }
 

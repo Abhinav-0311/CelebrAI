@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { verifyNavigation, verifyAdaptiveReview } from './browser_checks.mjs';
 import { chromium } from 'playwright';
 
 /**
@@ -18,6 +20,9 @@ if (!targetUrl) {
 }
 
 const normalizedUrl = targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`;
+const accessHeaders = process.env.VERCEL_PROTECTION_BYPASS
+  ? { 'x-vercel-protection-bypass': process.env.VERCEL_PROTECTION_BYPASS }
+  : {};
 
 async function runDeployedTests() {
   console.log(`\n============================================================`);
@@ -29,7 +34,7 @@ async function runDeployedTests() {
   // --- TEST 1: Frontend Root & Security Headers ---
   console.log('--- Step 1: Testing Frontend Availability & Headers ---');
   const feStart = Date.now();
-  const feRes = await fetch(normalizedUrl);
+  const feRes = await fetch(normalizedUrl, { headers: accessHeaders, signal: AbortSignal.timeout(30000) });
   const feLatency = Date.now() - feStart;
   const feHtml = await feRes.text();
 
@@ -42,6 +47,8 @@ async function runDeployedTests() {
 
   const xFrameOptions = feRes.headers.get('x-frame-options');
   const xContentType = feRes.headers.get('x-content-type-options');
+  assert.equal(xFrameOptions, 'DENY');
+  assert.equal(xContentType, 'nosniff');
   console.log(`✓ Frontend HTTP 200 OK (${feLatency}ms)`);
   console.log(`✓ Security Header X-Frame-Options: ${xFrameOptions || 'not set'}`);
   console.log(`✓ Security Header X-Content-Type-Options: ${xContentType || 'not set'}`);
@@ -51,7 +58,7 @@ async function runDeployedTests() {
   const apiEndpoint = `${normalizedUrl}/api/gemini`;
 
   // Check 405 Method Not Allowed on GET
-  const getRes = await fetch(apiEndpoint, { method: 'GET' });
+  const getRes = await fetch(apiEndpoint, { method: 'GET', headers: accessHeaders, signal: AbortSignal.timeout(30000) });
   if (getRes.status !== 405) {
     throw new Error(`Expected GET /api/gemini to return 405, got ${getRes.status}`);
   } else {
@@ -61,7 +68,8 @@ async function runDeployedTests() {
   // Check 400 Bad Request on empty POST
   const emptyPostRes = await fetch(apiEndpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(30000),
+    headers: { ...accessHeaders, 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
   });
   if (emptyPostRes.status !== 400) {
@@ -90,7 +98,8 @@ async function runDeployedTests() {
   const apiStart = Date.now();
   const apiRes = await fetch(apiEndpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(30000),
+    headers: { ...accessHeaders, 'Content-Type': 'application/json' },
     body: JSON.stringify(testPayload),
   });
   const apiLatency = Date.now() - apiStart;
@@ -106,7 +115,12 @@ async function runDeployedTests() {
   console.log(`✓ Plan Generation HTTP 200 OK (${apiLatency}ms)`);
   console.log(`✓ Rate Limit Headers: Limit=${rateLimitHeader || 'edge'}, Remaining=${rateRemainingHeader || 'edge'}`);
 
+  assert.equal(apiJson.success, true);
+  assert(['live_ai', 'offline_fallback'].includes(apiJson.mode), 'Unknown engine mode');
+  assert(Array.isArray(apiJson.data?.milestones) && apiJson.data.milestones.length >= 3);
+  assert(Array.isArray(apiJson.data?.creative?.invitations) && apiJson.data.creative.invitations.length > 0);
   const isLive = apiJson.mode === 'live_ai';
+  if (isLive) assert.equal(typeof apiJson.model, 'string');
   if (isLive) {
     console.log(`⚡ LIVE GEMINI AI ACTIVE! Upstream model (${apiJson.model || 'Gemini'}) generated complete structured plan in ${apiLatency}ms.`);
   } else {
@@ -128,48 +142,29 @@ async function runDeployedTests() {
   // --- TEST 4: Real Headless Browser Smoke Test against Deployed Site ---
   console.log('\n--- Step 4: Running Headless Browser Smoke Test on Live URL ---');
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, extraHTTPHeaders: accessHeaders });
 
   const browserErrors = [];
   page.on('pageerror', (err) => browserErrors.push(err.message));
 
-  await page.goto(normalizedUrl, { waitUntil: 'networkidle' });
+  try {
+    await page.goto(normalizedUrl, { waitUntil: 'networkidle' });
 
-  // 1. Verify brand & title
-  const pageTitle = await page.title();
-  if (!pageTitle.includes('CelebrAI')) {
-    throw new Error(`Unexpected page title on deployed site: "${pageTitle}"`);
-  }
-  console.log(`✓ Browser page load verified: "${pageTitle}"`);
-
-  // 2. Verify tab navigation
-  await page.click('#tab-budget');
-  await page.waitForTimeout(300);
-  await page.click('#tab-timeline');
-  await page.waitForTimeout(300);
-  await page.click('#tab-guests');
-  await page.waitForTimeout(300);
-  await page.click('#tab-creative');
-  await page.waitForTimeout(300);
-  await page.click('#tab-overview');
-  await page.waitForTimeout(300);
-  console.log('✓ All 6 core modules navigated seamlessly in real browser');
-
-  // 3. Verify adaptive recalculation
-  const guestInput = page.locator('#adjust-guests');
-  if (await guestInput.isVisible()) {
-    await guestInput.fill('160');
-    const rippleBtn = page.locator('button:has-text("Ripple"), button:has-text("Recalculate")').first();
-    await rippleBtn.click();
-    await page.waitForTimeout(400);
-    const modal = page.locator('div[role="dialog"]');
-    if (await modal.isVisible()) {
-      await page.keyboard.press('Escape');
-      console.log('✓ Hosted Adaptive Intelligence Engine reactive modal verified');
+    // 1. Verify brand & title
+    const pageTitle = await page.title();
+    if (!pageTitle.includes('CelebrAI')) {
+      throw new Error(`Unexpected page title on deployed site: "${pageTitle}"`);
     }
+    console.log(`✓ Browser page load verified: "${pageTitle}"`);
+
+    await verifyNavigation(page);
+    console.log('✓ All seven workspaces and active panels verified');
+    await verifyAdaptiveReview(page);
+    console.log('✓ Adaptive review opens, dismisses and retains the current plan');
+  } finally {
+    await browser.close();
   }
 
-  await browser.close();
 
   if (browserErrors.length > 0) {
     throw new Error(`Browser console logged ${browserErrors.length} errors:\n${browserErrors.join('\n')}`);
