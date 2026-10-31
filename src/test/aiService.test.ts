@@ -70,6 +70,21 @@ describe('AI response validation and deterministic fallback', () => {
     expect(result.sourceMessage).toContain('Local deterministic engine');
   });
 
+  it('aborts a stalled request and returns a reconciled offline plan', async () => {
+    const nativeTimeout = AbortSignal.timeout.bind(AbortSignal);
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockImplementationOnce(delay => {
+      expect(delay).toBe(25000);
+      return nativeTimeout(5);
+    });
+    vi.stubGlobal('fetch', vi.fn((_url, options: RequestInit) => new Promise((_resolve, reject) => {
+      options.signal?.addEventListener('abort', () => reject(options.signal?.reason), { once: true });
+    })));
+    const result = await generateCelebrAIPlan(input);
+    expect(timeout).toHaveBeenCalledOnce();
+    expect(result.mode).toBe('offline');
+    expect(result.plan.allocations.reduce((sum, item) => sum + item.allocatedCents, 0)).toBe(2500000);
+  });
+
   it('sends only the sanitized event brief', async () => {
     const fetchMock = respond({ success: true, mode: 'offline_fallback', data: serverPlan });
     await generateCelebrAIPlan({ ...input, guestRoster: ['Private guest'] } as typeof input);

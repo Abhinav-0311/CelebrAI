@@ -5,18 +5,23 @@ import { CelebrAILogo } from './CelebrAILogo';
 import { EngineStatus } from './EngineStatus';
 
 export const Header: React.FC = () => {
-  const { currentEvent, activeTab, loadSampleEvent, setCreateModalOpen, exportEventJson, importEventJson } = useEventStore();
+  const { currentEvent, activeTab, loadSampleEvent, setCreateModalOpen, exportEventJson, importEventJson, storageRecoveryJson } = useEventStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
 
-  const handleExport = () => {
-    const url = URL.createObjectURL(new Blob([exportEventJson()], { type: 'application/json' }));
+  const downloadJson = (json: string, filename: string) => {
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `celebr-ai-${currentEvent?.title.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'event'}.json`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleExport = () => downloadJson(
+    exportEventJson(),
+    `celebr-ai-${currentEvent?.title.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'event'}.json`,
+  );
 
   const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -71,6 +76,10 @@ export const Header: React.FC = () => {
           <span className="min-w-0 truncate text-xs text-stone-600 dark:text-stone-300" title={currentEvent?.title}>{currentEvent?.title || 'Your next celebration'}</span>
           <span className="shrink-0"><EngineStatus /></span>
         </div>
+        {storageRecoveryJson !== null && <div role="alert" className="pb-3 text-sm text-rose-700 dark:text-rose-300">
+          <p>Your saved plan could not be restored. The original saved data is preserved for recovery.</p>
+          <button type="button" onClick={() => downloadJson(storageRecoveryJson, 'celebr-ai-saved-data-recovery.json')} className="mt-1 min-h-11 underline underline-offset-4">Download saved data</button>
+        </div>}
         {importError && <p role="alert" className="pb-3 text-sm text-rose-700 dark:text-rose-300">{importError}</p>}
       </div>
     </header>

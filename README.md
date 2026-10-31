@@ -16,13 +16,13 @@ The app opens with a clearly labelled **Sample Showcase** event. Use **Plan Even
 - **Vendors:** category checklists and inquiry drafts. Open a draft in your mail app and choose the recipient before sending.
 - **Adaptive Intelligence:** preview the effects of headcount or budget changes before applying them. Protected commitments and infeasible budgets are checked by the shared calculation engine.
 
-Plans are saved in this browser's local storage. Export JSON for backup or transfer to another browser; import validates the file before replacing the current plan. Invitation previews contain RSVP wording; there is no hosted guest response portal.
+Plans are saved in this browser's local storage. Export JSON for backup or transfer to another browser; import validates the file before replacing the current plan. Invitation previews contain RSVP wording; there is no hosted guest response portal. Saved data is validated when restored. If it is damaged or uses an unsupported storage version, the app opens an empty workspace with a recovery download; the original data remains preserved across subsequent saves. Malformed currency codes are rejected before import replaces the current plan.
 
 ## GenAI services and fallback
 
 Google Gemini, through the server-side `@google/genai` SDK and `/api/gemini` endpoint, generates structured event concepts, allocations, timelines, catering guidance, vendor drafts, invitations and speeches. The server validates and normalizes the response before the app uses it. Model candidates and the optional `GEMINI_MODEL` setting are defined in [api/gemini.ts](api/gemini.ts).
 
-The mode indicator distinguishes **Sample Showcase**, **Live AI Engine** and **Offline Engine**. If a key is missing, a request fails or a response is invalid, a deterministic planner creates the plan. A successful plan does not by itself prove that a live model responded.
+The mode indicator distinguishes **Sample Showcase**, **Live AI Engine** and **Offline Engine**. If a key is missing, a request fails, the browser request exceeds 25 seconds or a response is invalid, a deterministic planner creates the plan. A successful plan does not by itself prove that a live model responded.
 
 The Gemini key stays on the server. Generation sends the event brief, including title, date and location; guest rosters and expense records are not included. Email and phone patterns in special notes are redacted, but this is not comprehensive anonymization. Avoid confidential details in the event brief. There are no accounts or cloud plan synchronization.
 
@@ -57,9 +57,9 @@ npm run verify
 
 `verify` runs typecheck, lint, full-source unit coverage, production build, real local HTTP API checks and nine browser journeys. The same command runs on Node.js 24 in [GitHub Actions](.github/workflows/verify.yml) after a clean `npm ci` install. CI uses no Gemini key and tests the deterministic fallback; live generation is checked separately below.
 
-The suite has **106 unit/integration tests**. Coverage includes application components, services, state, contracts and the API, including files not imported by tests. Test files and the bootstrap entry `src/main.tsx` are excluded. Gates require at least 90% lines/statements, 75% branches and 65% functions overall, with stronger service/store checks in [vitest.config.ts](vitest.config.ts). Reports are written to ignored `coverage/` and retained as CI artifacts.
+The suite has **125 unit/integration tests**. Coverage includes application components, services, state, contracts and the API, including files not imported by tests. Test files and the bootstrap entry `src/main.tsx` are excluded. Gates require at least 90% lines/statements, 75% branches and 65% functions overall, with stronger service/store checks in [vitest.config.ts](vitest.config.ts). Reports are written to ignored `coverage/` and retained as CI artifacts.
 
-Individual checks are available through `npm run test:coverage`, `npm run test:api` and `npm run test:e2e -- --prod`. API checks start a dedicated local server with an empty key and verify all eight event types, exact odd-currency totals, request validation and UTF-8 byte limits. Browser checks require all seven workspaces, adaptive apply/rejection, expense and guest changes, JSON transfer and persistence. They also deliberately remove required controls to confirm the harness fails. Browser screenshots go to ignored `test-results/screenshots/`, or `ARTIFACT_DIR/screenshots/` when configured; these are functional checks rather than pixel-diff visual regression tests.
+Individual checks are available through `npm run test:coverage`, `npm run test:api` and `npm run test:e2e -- --prod`. API checks start a dedicated local server with an empty key and verify all eight event types, exact odd-currency totals, request validation and UTF-8 byte limits. Browser checks require all seven workspaces, adaptive apply/rejection, expense and guest changes, JSON transfer and persistence. They also deliberately remove required controls to confirm the harness fails, and verify damaged saved-data recovery, the original download and subsequent persistence. Browser screenshots go to ignored `test-results/screenshots/`, or `ARTIFACT_DIR/screenshots/` when configured; these are functional checks rather than pixel-diff visual regression tests.
 
 For a hosted deployment, verify the frontend, API guards, exact allocation reconciliation and reported engine mode:
 

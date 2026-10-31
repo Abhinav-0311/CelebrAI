@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { z } from 'zod';
 import { 
   CelebrAIEvent, 
   SystemAIMode, 
@@ -39,6 +40,7 @@ interface EventStoreState {
   isAdaptiveModalOpen: boolean;
   activeRippleAlert: AdaptiveRippleAlert | null;
   isGenerating: boolean;
+  storageRecoveryJson: string | null;
 
   // Actions
   setActiveTab: (tab: NavigationTab) => void;
@@ -84,6 +86,16 @@ interface EventStoreState {
 }
 
 
+const SavedEventSchema = z.object({
+  version: z.literal(1),
+  state: z.object({
+    currentEvent: CelebrAIEventSchema.nullable(),
+    systemMode: z.enum(['live', 'offline', 'sample']),
+    systemMessage: z.string(),
+    storageRecoveryJson: z.string().nullable().default(null),
+  }),
+});
+
 export const useEventStore = create<EventStoreState>()(
   persist(
     (set, get) => ({
@@ -95,6 +107,7 @@ export const useEventStore = create<EventStoreState>()(
       isAdaptiveModalOpen: false,
       activeRippleAlert: null,
       isGenerating: false,
+      storageRecoveryJson: null,
 
       setActiveTab: (activeTab) => set({ activeTab }),
       setCreateModalOpen: (isCreateModalOpen) => set({ isCreateModalOpen }),
@@ -650,20 +663,34 @@ export const useEventStore = create<EventStoreState>()(
     {
       name: 'celebr-ai-storage-v1',
       version: 1,
-      migrate: (persistedState: any, version: number) => {
-        if (version === 0 || !persistedState) {
-          return {
-            currentEvent: sampleEventData,
-            systemMode: 'sample',
-            systemMessage: 'Migrated to v1 storage schema',
-          };
-        }
-        return persistedState;
-      },
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          const raw = localStorage.getItem(name);
+          if (raw === null) return null;
+          try {
+            const parsed = SavedEventSchema.safeParse(JSON.parse(raw));
+            if (parsed.success) return JSON.stringify(parsed.data);
+          } catch {
+            // Keep unreadable JSON available for recovery instead of replacing it.
+          }
+          return JSON.stringify({
+            version: 1,
+            state: {
+              currentEvent: null,
+              systemMode: 'offline',
+              systemMessage: 'Saved plan could not be restored',
+              storageRecoveryJson: raw,
+            },
+          });
+        },
+        setItem: (name, value) => localStorage.setItem(name, value),
+        removeItem: (name) => localStorage.removeItem(name),
+      })),
       partialize: (state) => ({
         currentEvent: state.currentEvent,
         systemMode: state.systemMode,
         systemMessage: state.systemMessage,
+        storageRecoveryJson: state.storageRecoveryJson,
       }),
     }
   )

@@ -21,6 +21,7 @@ export async function generateCelebrAIPlan(
 
     const response = await fetch('/api/gemini', {
       method: 'POST',
+      signal: AbortSignal.timeout(25000),
       headers: {
         'Content-Type': 'application/json',
       },

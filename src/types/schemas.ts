@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const CurrencySchema = z.string().regex(/^[A-Za-z]{3}$/, 'Currency must be a three-letter code, such as USD or INR');
+
 export const EventCreationSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters').max(80),
   eventType: z.enum([
@@ -14,7 +16,7 @@ export const EventCreationSchema = z.object({
   ]),
   guestCount: z.number().int().min(2, 'Guest count must be at least 2').max(5000),
   totalBudget: z.number().min(100, 'Budget must be at least $100').max(10000000),
-  currency: z.string().default('USD'),
+  currency: CurrencySchema.default('USD'),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
   timezone: z.string().default('America/Los_Angeles'),
   location: z.string().min(2, 'Location is required'),
@@ -69,6 +71,7 @@ export const AITimelineMilestoneSchema = z.object({
   assignedTo: z.string(),
   notes: z.string().optional(),
   status: z.enum(['pending', 'in_progress', 'completed']).default('pending'),
+  completedAt: z.string().optional(),
 });
 
 export const AIVendorCategorySchema = z.object({
@@ -76,6 +79,8 @@ export const AIVendorCategorySchema = z.object({
   category: z.enum(['venue', 'catering', 'photography', 'entertainment', 'florist_decor', 'officiant_host', 'rentals']),
   name: z.string(),
   recommendedBudgetCents: z.number().int().min(0),
+  confirmedVendorName: z.string().optional(),
+  contactEmail: z.string().optional(),
   checklist: z.array(z.object({
     id: z.string(),
     task: z.string(),
@@ -187,7 +192,7 @@ export const CelebrAIEventSchema = z.object({
   theme: AIEventThemeSchema,
   budget: z.object({
     totalBudgetCents: z.number().int().positive(),
-    currency: z.string(),
+    currency: CurrencySchema,
     allocations: z.array(AIBudgetAllocationSchema),
     expenses: z.array(z.object({
       id: z.string(),

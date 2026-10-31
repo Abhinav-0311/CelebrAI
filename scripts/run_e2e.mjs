@@ -122,6 +122,31 @@ async function runE2ETests() {
       await assert.rejects(verifyAdaptiveReview(guardPage), /Recalculate guest adaptive ripple/);
     } finally { await guardPage.close(); }
     console.log('✓ Missing required tabs and adaptive controls correctly fail verification');
+
+    const recoveryPage = await browser.newPage();
+    recoveryPage.on('pageerror', error => browserErrors.push(error.message));
+    try {
+      await recoveryPage.goto(baseUrl, { waitUntil: 'networkidle' });
+      const raw = '{"version":1,"state":{"currentEvent":{"id":"damaged-saved-plan"}}}';
+      await recoveryPage.evaluate(value => localStorage.setItem('celebr-ai-storage-v1', value), raw);
+      await recoveryPage.reload({ waitUntil: 'networkidle' });
+      await recoveryPage.getByRole('heading', { name: 'No Event Loaded', exact: true }).waitFor();
+      assert.match(await recoveryPage.getByRole('alert').innerText(), /saved plan could not be restored/);
+      const downloadPromise = recoveryPage.waitForEvent('download');
+      await recoveryPage.getByRole('button', { name: 'Download saved data', exact: true }).click();
+      const recoveryDownload = await downloadPromise;
+      assert.equal(recoveryDownload.suggestedFilename(), 'celebr-ai-saved-data-recovery.json');
+      const chunks = [];
+      for await (const chunk of await recoveryDownload.createReadStream()) chunks.push(chunk);
+      assert.equal(Buffer.concat(chunks).toString('utf8'), raw);
+      assert.equal(await recoveryPage.evaluate(() => localStorage.getItem('celebr-ai-storage-v1')), raw);
+      await recoveryPage.getByRole('button', { name: 'Sample Event', exact: true }).click();
+      await recoveryPage.reload({ waitUntil: 'networkidle' });
+      assert.equal(await recoveryPage.getByLabel('Guest Count', { exact: true }).inputValue(), '150');
+      assert.equal(await recoveryPage.evaluate(() => JSON.parse(localStorage.getItem('celebr-ai-storage-v1')).state.storageRecoveryJson), raw);
+    } finally { await recoveryPage.close(); }
+    console.log('✓ Damaged saved data recovers without a crash; original download and subsequent persistence verified');
+
     
     // Budget Tab
     await openTab(page, 'budget');
